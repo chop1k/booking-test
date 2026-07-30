@@ -1,0 +1,516 @@
+{#
+    Главная страница Telegram WebApp бронирования комнат.
+
+    Предположения по интеграции (поправьте под реальную структуру проекта):
+    - Страница является полноценным HTML-документом (entry point приложения),
+      поэтому не extends от base.html.twig — если у вас уже есть базовый layout
+      с подключением telegram-web-app.js / importmap, перенесите содержимое <head>.
+    - Переход на страницу выбора комнаты сделан как обычная ссылка на "/rooms" —
+      замените на {{ path('app_room_selection') }}, когда появится именованный роут.
+    - Все запросы к API идут по относительным путям (/business/..., /system/..., /integration/...),
+      предполагается, что фронтенд и API находятся на одном origin (либо это будет проксироваться).
+    - Stimulus-контроллеры (assets/controllers/*_controller.js) регистрируются автоматически
+      через symfony/stimulus-bundle (AssetMapper). Если у вас Webpack Encore — добавьте их
+      в assets/controllers.json вручную.
+#}
+<!doctype html>
+<html lang="ru" data-tg-scheme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Бронирование переговорных</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <style>
+        :root {
+            /* Фолбэки на случай отсутствия Telegram.WebApp.themeParams (light) */
+            --tg-bg-color: #ffffff;
+            --tg-text-color: #0f0f0f;
+            --tg-hint-color: #8b8b8f;
+            --tg-link-color: #2481cc;
+            --tg-button-color: #2481cc;
+            --tg-button-text-color: #ffffff;
+            --tg-secondary-bg-color: #f2f2f5;
+            --tg-header-bg-color: #ffffff;
+            --tg-accent-text-color: #2481cc;
+            --tg-section-bg-color: #ffffff;
+            --tg-section-header-text-color: #6d6d72;
+            --tg-subtitle-text-color: #8b8b8f;
+            --tg-destructive-text-color: #e0384b;
+
+            --tg-viewport-stable-height: 100vh;
+
+            --space-1: 4px;
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-5: 24px;
+            --space-6: 32px;
+
+            --radius-l: 20px;
+            --radius-m: 14px;
+            --radius-s: 10px;
+
+            --shadow-card: 0 1px 2px rgba(15, 15, 15, 0.06), 0 8px 24px rgba(15, 15, 15, 0.08);
+        }
+
+        html[data-tg-scheme="dark"] {
+            --tg-bg-color: #17212b;
+            --tg-text-color: #f0f0f0;
+            --tg-hint-color: #7c8a9a;
+            --tg-link-color: #6ab7ff;
+            --tg-button-color: #5288c1;
+            --tg-button-text-color: #ffffff;
+            --tg-secondary-bg-color: #1f2a37;
+            --tg-header-bg-color: #17212b;
+            --tg-accent-text-color: #6ab7ff;
+            --tg-section-bg-color: #1c2733;
+            --tg-section-header-text-color: #6ab7ff;
+            --tg-subtitle-text-color: #7c8a9a;
+            --tg-destructive-text-color: #f0505f;
+            --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            min-height: var(--tg-viewport-stable-height, 100vh);
+            background: var(--tg-bg-color);
+            color: var(--tg-text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        body.is-ready { opacity: 1; }
+
+        button { font-family: inherit; }
+
+        :focus-visible {
+            outline: 2px solid var(--tg-link-color);
+            outline-offset: 2px;
+        }
+
+        .page {
+            max-width: 560px;
+            margin: 0 auto;
+            padding: var(--space-4) var(--space-4) var(--space-6);
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-5);
+        }
+
+        /* --- Карточка "Забронировать комнату" ------------------------------- */
+
+        .booking-card__link {
+            display: block;
+            text-decoration: none;
+            color: inherit;
+            background: var(--tg-section-bg-color);
+            border-radius: var(--radius-l);
+            box-shadow: var(--shadow-card);
+            overflow: hidden;
+        }
+
+        .collage {
+            display: grid;
+            grid-template-columns: 1.1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            aspect-ratio: 16 / 9;
+            gap: 2px;
+            background: var(--tg-secondary-bg-color);
+        }
+
+        .collage__slot {
+            position: relative;
+            overflow: hidden;
+            background: var(--tg-secondary-bg-color);
+        }
+        .collage__slot img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .collage__slot--main { grid-row: 1 / 3; grid-column: 1; }
+        .collage__slot--top { grid-row: 1; grid-column: 2; }
+        .collage__slot--bottom { grid-row: 2; grid-column: 2; }
+
+        .collage__slot--placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--tg-hint-color);
+        }
+
+        .collage__error {
+            grid-column: 1 / -1;
+            grid-row: 1 / -1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--tg-hint-color);
+            font-size: 14px;
+        }
+
+        .booking-card__body {
+            padding: var(--space-4) var(--space-5) var(--space-5);
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-1);
+        }
+
+        .booking-card__eyebrow {
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--tg-accent-text-color);
+        }
+
+        .booking-card__title {
+            margin: 0;
+            font-size: 21px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+
+        .booking-card__cta {
+            margin-top: var(--space-2);
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--tg-link-color);
+        }
+
+        /* --- Расписание / календарь ------------------------------------------ */
+
+        .schedule__title {
+            margin: 0 0 var(--space-3);
+            font-size: 17px;
+            font-weight: 700;
+        }
+
+        .calendar {
+            background: var(--tg-section-bg-color);
+            border-radius: var(--radius-l);
+            box-shadow: var(--shadow-card);
+            padding: var(--space-4);
+        }
+
+        .calendar__switcher {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--space-3);
+        }
+
+        .calendar__month {
+            font-size: 15px;
+            font-weight: 700;
+            text-transform: capitalize;
+        }
+
+        .calendar__nav {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: var(--tg-secondary-bg-color);
+            color: var(--tg-text-color);
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+        }
+        .calendar__nav:active { transform: scale(0.94); }
+
+        .calendar__grid {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .calendar__grid th {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--tg-hint-color);
+            padding-bottom: var(--space-2);
+            text-transform: uppercase;
+        }
+        .calendar__grid th.is-weekend { color: var(--tg-subtitle-text-color); opacity: 0.7; }
+
+        .calendar__grid td {
+            text-align: center;
+            padding: 2px;
+        }
+
+        .calendar__day {
+            width: 100%;
+            aspect-ratio: 1;
+            border: none;
+            background: transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            color: var(--tg-text-color);
+            font-size: 14px;
+            font-variant-numeric: tabular-nums;
+        }
+        .calendar__day:active { background: var(--tg-secondary-bg-color); }
+        .calendar__day.is-weekend { color: var(--tg-subtitle-text-color); }
+        .calendar__day.is-outside { opacity: 0.35; }
+        .calendar__day.is-today .calendar__day-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--tg-link-color);
+            color: var(--tg-button-text-color);
+        }
+
+        .calendar__density {
+            width: 14px;
+            height: 3px;
+            border-radius: 2px;
+            background: transparent;
+        }
+        .calendar__density--low { background: var(--tg-link-color); opacity: 0.4; }
+        .calendar__density--medium { background: var(--tg-link-color); opacity: 0.75; }
+        .calendar__density--high { background: var(--tg-link-color); opacity: 1; }
+
+        /* --- Шторка расписания дня ------------------------------------------- */
+
+        .sheet-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0);
+            transition: background 0.25s ease;
+            z-index: 40;
+        }
+        .sheet-backdrop.is-visible { background: rgba(0, 0, 0, 0.4); }
+
+        .day-sheet {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 50;
+            max-width: 560px;
+            margin: 0 auto;
+            background: var(--tg-section-bg-color);
+            border-radius: var(--radius-l) var(--radius-l) 0 0;
+            box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.2);
+            height: 60vh;
+            display: flex;
+            flex-direction: column;
+            transform: translateY(100%);
+            transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1), height 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+        }
+        .day-sheet.is-dragging { transition: none; }
+        .day-sheet.is-collapsed { transform: translateY(0); height: 60vh; }
+        .day-sheet.is-expanded { transform: translateY(0); height: 94vh; }
+        .day-sheet.is-closed { transform: translateY(100%); }
+
+        .day-sheet__handle {
+            padding: var(--space-2) 0;
+            display: flex;
+            justify-content: center;
+            cursor: grab;
+            touch-action: none;
+        }
+        .day-sheet__handle::before {
+            content: '';
+            width: 36px;
+            height: 4px;
+            border-radius: 2px;
+            background: var(--tg-hint-color);
+            opacity: 0.5;
+        }
+
+        .day-sheet__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 var(--space-4) var(--space-3);
+        }
+
+        .day-sheet__date {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 700;
+            text-transform: capitalize;
+        }
+
+        .day-sheet__close {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: none;
+            background: var(--tg-secondary-bg-color);
+            color: var(--tg-hint-color);
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .day-sheet__list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 var(--space-4) var(--space-5);
+        }
+
+        .day-sheet__empty {
+            color: var(--tg-hint-color);
+            font-size: 14px;
+            text-align: center;
+            margin-top: var(--space-6);
+        }
+
+        .hour-item {
+            border-bottom: 1px solid var(--tg-secondary-bg-color);
+        }
+        .hour-item__row {
+            width: 100%;
+            border: none;
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-3) 0;
+            cursor: pointer;
+            color: var(--tg-text-color);
+        }
+        .hour-item__time {
+            font-size: 15px;
+            font-variant-numeric: tabular-nums;
+            font-weight: 600;
+        }
+
+        .hour-item__details {
+            display: none;
+            flex-direction: column;
+            gap: var(--space-2);
+            padding: 0 0 var(--space-3) var(--space-3);
+            border-left: 2px solid var(--tg-secondary-bg-color);
+            margin-left: var(--space-1);
+        }
+        .hour-item.is-open .hour-item__details { display: flex; }
+        .hour-item.is-open .hour-item__row { padding-bottom: var(--space-2); }
+
+        .minute-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+            color: var(--tg-hint-color);
+        }
+        .minute-item__time { font-variant-numeric: tabular-nums; }
+
+        .avatars {
+            display: flex;
+            align-items: center;
+        }
+        .avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            overflow: hidden;
+            background: var(--tg-secondary-bg-color);
+            border: 2px solid var(--tg-section-bg-color);
+            margin-left: -8px;
+            flex-shrink: 0;
+        }
+        .avatar:first-child { margin-left: 0; }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .avatar--placeholder { background: var(--tg-hint-color); opacity: 0.4; }
+        .avatar--more {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--tg-button-text-color);
+            background: var(--tg-hint-color);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .day-sheet, .sheet-backdrop, body { transition: none !important; }
+        }
+    </style>
+</head>
+<body
+    data-controller="app-shell"
+    data-app-shell-rooms-url-value="/business/rooms"
+    data-app-shell-room-selection-url-value="/rooms"
+>
+    <main class="page">
+        <section class="booking-card">
+            {# TODO: заменить href на {{ path('app_room_selection') }}, когда роут будет назван #}
+            <a class="booking-card__link" href="/rooms" aria-label="Забронировать комнату — выбрать переговорную">
+                <div class="collage" data-app-shell-target="collage"></div>
+                <div class="booking-card__body">
+                    <span class="booking-card__eyebrow">Быстрое бронирование</span>
+                    <h2 class="booking-card__title">Забронировать комнату</h2>
+                    <span class="booking-card__cta">Выбрать переговорную →</span>
+                </div>
+            </a>
+        </section>
+
+        <section
+            class="schedule"
+            data-controller="calendar"
+            data-calendar-bookings-url-value="/business/bookings"
+        >
+            <h3 class="schedule__title">Расписание бронирований</h3>
+
+            <div class="calendar">
+                <div class="calendar__switcher">
+                    <button type="button" class="calendar__nav" data-action="calendar#prevMonth" aria-label="Предыдущий месяц">‹</button>
+                    <span class="calendar__month" data-calendar-target="monthLabel"></span>
+                    <button type="button" class="calendar__nav" data-action="calendar#nextMonth" aria-label="Следующий месяц">›</button>
+                </div>
+
+                <table class="calendar__grid">
+                    <thead>
+                        <tr>
+                            {% for day in ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] %}
+                                <th class="{{ loop.index0 >= 5 ? 'is-weekend' : '' }}">{{ day }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody data-calendar-target="grid"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <div class="sheet-backdrop" data-day-schedule-target="backdrop" data-action="click->day-schedule#close" hidden></div>
+    <div
+        class="day-sheet"
+        data-controller="day-schedule"
+        data-day-schedule-target="sheet"
+        hidden
+    >
+        <div
+            class="day-sheet__handle"
+            data-action="touchstart->day-schedule#touchStart touchmove->day-schedule#touchMove touchend->day-schedule#touchEnd"
+        ></div>
+        <header class="day-sheet__header">
+            <h4 class="day-sheet__date" data-day-schedule-target="dateLabel"></h4>
+            <button type="button" class="day-sheet__close" data-action="day-schedule#close" aria-label="Закрыть">✕</button>
+        </header>
+        <div class="day-sheet__list" data-day-schedule-target="list"></div>
+    </div>
+</body>
+</html>
