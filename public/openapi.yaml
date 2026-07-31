@@ -1,0 +1,615 @@
+openapi: 3.0.0
+info:
+  title: Room booking service API
+  description: |
+    API specification for room booking service.
+  version: 0.0.0
+  license:
+    name: AGPL-3.0
+    url: https://opensource.org/licenses/AGPL-3.0
+
+tags:
+  - name: Business
+    description: Main business logic, isolated from technical details
+  - name: Integration
+    description: Integrations with external services (telegram)
+  - name: System
+    description: System services (storage, metrics, health, etc)
+  - name: MiniApp
+    description: Telegram MiniApp frontend endpoints
+
+paths:
+  /business/rooms:
+    get:
+      tags:
+        - Business
+      summary: Get all rooms
+      description: Returns collection of rooms
+      operationId: businessGetRooms
+      security:
+        - TelegramToken: []
+      responses:
+        '200':
+          description: Rooms collection successfully retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdentifiableRoomsCollection"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '405':
+          $ref: "#/components/responses/MethodNotAllowed"
+        '500':
+          $ref: "#/components/responses/ServerError"
+
+  /business/bookings:
+    get:
+      tags:
+        - Business
+      summary: Get all bookings
+      description: Returns collection of bookings
+      operationId: businessGetBookings
+      security:
+        - TelegramToken: []
+      parameters:
+        - $ref: "#/components/parameters/BookingFrom"
+        - $ref: "#/components/parameters/BookingTo"
+      responses:
+        '200':
+          description: Bookings collection successfully retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdentifiableBookingsCollection"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '405':
+          $ref: "#/components/responses/MethodNotAllowed"
+        '500':
+          $ref: "#/components/responses/ServerError"
+    post:
+      tags:
+        - Business
+      summary: Book a room
+      description: Create a booking for a room
+      operationId: businessBookRoom
+      security:
+        - TelegramToken: []
+      requestBody:
+        $ref: "#/components/requestBodies/BookingForm"
+      responses:
+        '200':
+          description: Room successfully booked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdentifiableBooking"
+        '400':
+          $ref: "#/components/responses/BadRequest"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '405':
+          $ref: "#/components/responses/MethodNotAllowed"
+        '500':
+          $ref: "#/components/responses/ServerError"
+
+  /integration/telegram/user-avatar/{user_id}:
+    get:
+      tags:
+        - Integration
+      summary: Get user avatar
+      description: Get avatar from telegram or use default
+      operationId: integrationsTelegramGetAvatar
+      security:
+        - TelegramToken: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        '200':
+          description: Successfully retrieved avatar from telegram or used default
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '405':
+          $ref: "#/components/responses/MethodNotAllowed"
+        '500':
+          $ref: "#/components/responses/ServerError"
+
+  /system/storage/files/{file_id}:
+    get:
+      tags:
+        - System
+      summary: Get file metadata
+      description: Retrieve and send file metadata
+      operationId: systemStorageGetFile
+      security:
+        - TelegramToken: []
+      parameters:
+        - $ref: "#/components/parameters/FileId"
+      responses:
+        '200':
+          description: Successfully retrieved file metadata from database
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/File"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '404':
+          $ref: "#/components/responses/NotFound"
+        '405':
+          $ref: "#/components/responses/MethodNotAllowed"
+        '500':
+          $ref: "#/components/responses/ServerError"
+
+  /system/storage/files/{file_id}/content:
+    get:
+      tags:
+        - System
+      summary: Get file content
+      description: Retrieve and send file content
+      operationId: systemStorageGetFileContent
+      security:
+        - TelegramToken: []
+      parameters:
+        - $ref: "#/components/parameters/FileId"
+      responses:
+        '200':
+          description: Successfully retrieved file contents from database
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '404':
+          $ref: "#/components/responses/NotFound"
+        '405':
+          $ref: "#/components/responses/MethodNotAllowed"
+        '500':
+          $ref: "#/components/responses/ServerError"
+
+  /web/home:
+    get:
+      tags:
+        - MiniApp
+      summary: Show main home page
+      description: Render html of the main home page and send it
+      operationId: webShowHome
+      security:
+        - TelegramToken: []
+      responses:
+        '200':
+          $ref: "#/components/responses/HtmlDocument"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '405':
+          $ref: "#/components/responses/MethodNotAllowed"
+        '500':
+          $ref: "#/components/responses/ServerError"
+
+  /web/rooms:
+    get:
+      tags:
+        - MiniApp
+      summary: Show rooms page
+      description: Render html of the rooms page and send it
+      operationId: webShowRooms
+      security:
+        - TelegramToken: []
+      responses:
+        '200':
+          $ref: "#/components/responses/HtmlDocument"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '405':
+          $ref: "#/components/responses/MethodNotAllowed"
+        '500':
+          $ref: "#/components/responses/ServerError"
+
+  /web/calendar/{date}:
+    get:
+      tags:
+        - MiniApp
+      summary: Show calendar day page
+      description: Render html of the calendar day page and send it
+      operationId: webShowCalendarDay
+      security:
+        - TelegramToken: []
+      parameters:
+        - $ref: "#/components/parameters/Date"
+      responses:
+        '200':
+          $ref: "#/components/responses/HtmlDocument"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '405':
+          $ref: "#/components/responses/MethodNotAllowed"
+        '500':
+          $ref: "#/components/responses/ServerError"
+
+components:
+  parameters:
+    BookingFrom:
+      name: from
+      in: query
+      required: false
+      schema:
+        type: number
+    BookingTo:
+      name: to
+      in: query
+      required: false
+      schema:
+        type: number
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        type: number
+    FileId:
+      name: file_id
+      in: path
+      required: true
+      schema:
+        type: number
+    Date:
+      name: date
+      in: path
+      required: true
+      schema:
+        type: string
+        format: date
+
+  requestBodies:
+    BookingForm:
+      content:
+          application/json:
+              schema:
+                  type: object
+                  properties:
+                      room_id:
+                          type: integer
+                      starts_at:
+                          type: string
+                          format: date-time
+                      ends_at:
+                          type: string
+                          format: date-time
+                      attributes:
+                          $ref: "#/components/schemas/BookingAttributesCollection"
+
+  schemas:
+    Room:
+      type: object
+      required:
+        - name
+        - attachments
+        - attributes
+      properties:
+        name:
+          type: string
+          minimum: 1
+          maximum: 42
+        description:
+          type: string
+          minimum: 1
+          description: Typically contains human-readable description or purpose of the room
+        attachments:
+          $ref: "#/components/schemas/IdentifiableFilesCollection"
+        attributes:
+          $ref: "#/components/schemas/RoomAttributesCollection"
+
+    Booking:
+      type: object
+      required:
+        - user_id
+        - room_id
+        - status
+        - starts_at
+        - ends_at
+        - attributes
+      properties:
+        user_id:
+          type: integer
+        room_id:
+          type: integer
+        status:
+          type: string
+          enum: [ 'pending', 'in_use', 'finished' ]
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        attributes:
+          $ref: "#/components/schemas/BookingAttributesCollection"
+
+    File:
+      type: object
+      required:
+        - path
+        - size
+      properties:
+        path:
+          type: string
+        size:
+          type: number
+
+    RoomAttribute:
+      oneOf:
+        - $ref: "#/components/schemas/SeatsAttribute"
+        - $ref: "#/components/schemas/DisplaysAttribute"
+        - $ref: "#/components/schemas/BoardsAttribute"
+        - $ref: "#/components/schemas/TablesAttribute"
+        - $ref: "#/components/schemas/AirConditionersAttribute"
+        - $ref: "#/components/schemas/OfficeAttributesAttribute"
+        - $ref: "#/components/schemas/PowerOutletsAttribute"
+      discriminator:
+        propertyName: type
+        mapping:
+          seats: "#/components/schemas/SeatsAttribute"
+          displays: "#/components/schemas/DisplaysAttribute"
+          boards: "#/components/schemas/BoardsAttribute"
+          tables: "#/components/schemas/TablesAttribute"
+          air-conditioners: "#/components/schemas/AirConditionersAttribute"
+          office-attributes: "#/components/schemas/OfficeAttributesAttribute"
+          power-outlets: "#/components/schemas/PowerOutletsAttribute"
+
+    SeatsAttribute:
+      type: object
+      properties:
+        count:
+          type: number
+          minimum: 0
+        capacity:
+          type: number
+          minimum: 1
+
+    DisplaysAttribute:
+      type: object
+      properties:
+        count:
+          type: number
+          minimum: 0
+
+    PowerOutletsUsedAttribute:
+      type: object
+      properties:
+        count:
+          type: number
+          minimum: 0
+
+    BoardsAttribute:
+      type: object
+      properties:
+        count:
+          type: number
+          minimum: 0
+
+    TablesAttribute:
+      type: object
+      properties:
+        count:
+          type: number
+          minimum: 0
+
+    AirConditionersAttribute:
+      type: object
+      properties:
+        count:
+          type: number
+          minimum: 0
+
+    OfficeAttributesAttribute:
+      type: object
+      properties:
+        count:
+          type: number
+          minimum: 0
+
+    BookingAttribute:
+      oneOf:
+        - $ref: "#/components/schemas/SeatsUsedAttribute"
+        - $ref: "#/components/schemas/DisplaysUsedAttribute"
+        - $ref: "#/components/schemas/BoardsUsedAttribute"
+        - $ref: "#/components/schemas/TablesUsedAttribute"
+        - $ref: "#/components/schemas/AirConditionersUsedAttribute"
+        - $ref: "#/components/schemas/OfficeAttributesUsedAttribute"
+        - $ref: "#/components/schemas/PowerOutletsUsedAttribute"
+      discriminator:
+        propertyName: type
+        mapping:
+          seats: "#/components/schemas/SeatsUsedAttribute"
+          displays: "#/components/schemas/DisplaysUsedAttribute"
+          boards: "#/components/schemas/BoardsUsedAttribute"
+          tables: "#/components/schemas/TablesUsedAttribute"
+          air-conditioners: "#/components/schemas/AirConditionersUsedAttribute"
+          office-attributes: "#/components/schemas/OfficeAttributesUsedAttribute"
+          power-outlets: "#/components/schemas/PowerOutletsUsedAttribute"
+
+    SeatsUsedAttribute:
+      type: object
+      properties:
+        count:
+          type: number
+          minimum: 0
+
+    PowerOutletsAttribute:
+      type: object
+      properties:
+        count:
+          type: number
+          minimum: 0
+
+    DisplaysUsedAttribute:
+      type: object
+      properties:
+        count:
+          type: number
+          minimum: 0
+
+    BoardsUsedAttribute:
+      type: object
+      properties:
+        count:
+          type: number
+          minimum: 0
+
+    TablesUsedAttribute:
+      type: object
+      properties:
+        count:
+          type: number
+          minimum: 0
+
+    AirConditionersUsedAttribute:
+      type: object
+      properties:
+        count:
+          type: number
+          minimum: 0
+
+    OfficeAttributesUsedAttribute:
+      type: object
+      properties:
+        count:
+          type: number
+          minimum: 0
+
+    RoomAttributesCollection:
+      type: array
+      items:
+        $ref: "#/components/schemas/RoomAttribute"
+
+    BookingAttributesCollection:
+      type: array
+      items:
+        $ref: "#/components/schemas/BookingAttribute"
+
+    IdentifiableFile:
+      allOf:
+        - $ref: "#/components/schemas/IdentifiableResource"
+        - $ref: "#/components/schemas/File"
+
+    IdentifiableRoom:
+      allOf:
+        - $ref: "#/components/schemas/IdentifiableResource"
+        - $ref: "#/components/schemas/Room"
+
+    IdentifiableBooking:
+      allOf:
+        - $ref: "#/components/schemas/IdentifiableResource"
+        - $ref: "#/components/schemas/Booking"
+
+    IdentifiableRoomsCollection:
+      type: array
+      items:
+        $ref: "#/components/schemas/IdentifiableRoom"
+
+    IdentifiableBookingsCollection:
+      type: array
+      items:
+        $ref: "#/components/schemas/IdentifiableBooking"
+
+    IdentifiableFilesCollection:
+      type: array
+      items:
+        $ref: "#/components/schemas/IdentifiableFile"
+
+    IdentifiableResource:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required:
+        - status
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+
+    ValidationErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+        - type: object
+          properties:
+            errors:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+
+  responses:
+    HtmlDocument:
+      description: Successfully rendered html template
+      content:
+        'text/html':
+          schema:
+            type: string
+
+    BadRequest:
+      description: Bad request returned if client provided data in wrong format.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+
+    Unauthorized:
+      description: Not authorized returned if client need to authenticate to access the endpoint.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Not found returned if client requested a resource that was removed or was not yet created.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    MethodNotAllowed:
+      description: Method not allowed returned if client tries to access the endpoint using wrong http method.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+            # todo: allow header
+    ServerError:
+      description: Unexpected internal error returned if something went wrong at server side.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  examples:
+
+  securitySchemes:
+    TelegramToken:
+      type: http
+      scheme: bearer
+      bearerFormat: TMA
