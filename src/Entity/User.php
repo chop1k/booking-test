@@ -6,52 +6,25 @@ namespace App\Entity;
 
 use App\Repository\UserRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Security\Core\User\UserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: '`user`')]
-class User
+class User implements UserInterface
 {
     use IdentifiableResourceTrait;
 
-    #[ORM\Column(type: 'string', unique: true)]
-    private string $telegramId;
-
-    #[ORM\Column(type: 'string', enumType: VerifiedBy::class, nullable: true)]
-    private ?VerifiedBy $verifiedBy = null;
-
-    #[ORM\Column(type: 'boolean', options: ['default' => false])]
-    private bool $isAdmin = false;
-
-    public function getTelegramId(): string
+    public function getRoles(): array
     {
-        return $this->telegramId;
+        return ['ROLE_USER'];
     }
 
-    public function setTelegramId(string $telegramId): self
+    public function getUserIdentifier(): string
     {
-        $this->telegramId = $telegramId;
-        return $this;
-    }
+        if ($this->id === null) {
+            throw new \LogicException('The user Id property must be set.');
+        }
 
-    public function getVerifiedBy(): ?VerifiedBy
-    {
-        return $this->verifiedBy;
-    }
-
-    public function setVerifiedBy(?VerifiedBy $verifiedBy): self
-    {
-        $this->verifiedBy = $verifiedBy;
-        return $this;
-    }
-
-    public function isAdmin(): bool
-    {
-        return $this->isAdmin;
-    }
-
-    public function setIsAdmin(bool $isAdmin): self
-    {
-        $this->isAdmin = $isAdmin;
-        return $this;
+        return (string) $this->id;
     }
 }

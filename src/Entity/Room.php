@@ -42,6 +42,7 @@ class Room
     public function setName(string $name): self
     {
         $this->name = $name;
+
         return $this;
     }
 
@@ -53,6 +54,7 @@ class Room
     public function setDescription(?string $description): self
     {
         $this->description = $description;
+
         return $this;
     }
 
@@ -67,12 +69,14 @@ class Room
         if (!$this->attachments->contains($file)) {
             $this->attachments->add($file);
         }
+
         return $this;
     }
 
     public function removeAttachment(File $file): self
     {
         $this->attachments->removeElement($file);
+
         return $this;
     }
 
@@ -84,6 +88,7 @@ class Room
     public function setAttributes(array $attributes): self
     {
         $this->attributes = $attributes;
+
         return $this;
     }
 }

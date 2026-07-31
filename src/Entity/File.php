@@ -26,6 +26,7 @@ class File
     public function setPath(string $path): self
     {
         $this->path = $path;
+
         return $this;
     }
 
@@ -37,6 +38,7 @@ class File
     public function setSize(int $size): self
     {
         $this->size = $size;
+
         return $this;
     }
 }

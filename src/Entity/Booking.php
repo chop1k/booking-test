@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Entity;
 
 use App\Repository\BookingRepository;
+use DateTimeInterface;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -23,10 +24,10 @@ class Booking
     private BookingStatus $status;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
-    private \DateTimeInterface $startsAt;
+    private DateTimeInterface $startsAt;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
-    private \DateTimeInterface $endsAt;
+    private DateTimeInterface $endsAt;
 
     #[ORM\Column(type: Types::JSON)]
     private array $attributes = [];
@@ -39,6 +40,7 @@ class Booking
     public function setUserId(int $userId): self
     {
         $this->userId = $userId;
+
         return $this;
     }
 
@@ -50,6 +52,7 @@ class Booking
     public function setRoomId(int $roomId): self
     {
         $this->roomId = $roomId;
+
         return $this;
     }
 
@@ -61,28 +64,31 @@ class Booking
     public function setStatus(BookingStatus $status): self
     {
         $this->status = $status;
+
         return $this;
     }
 
-    public function getStartsAt(): \DateTimeInterface
+    public function getStartsAt(): DateTimeInterface
     {
         return $this->startsAt;
     }
 
-    public function setStartsAt(\DateTimeInterface $startsAt): self
+    public function setStartsAt(DateTimeInterface $startsAt): self
     {
         $this->startsAt = $startsAt;
+
         return $this;
     }
 
-    public function getEndsAt(): \DateTimeInterface
+    public function getEndsAt(): DateTimeInterface
     {
         return $this->endsAt;
     }
 
-    public function setEndsAt(\DateTimeInterface $endsAt): self
+    public function setEndsAt(DateTimeInterface $endsAt): self
     {
         $this->endsAt = $endsAt;
+
         return $this;
     }
 
@@ -94,6 +100,7 @@ class Booking
     public function setAttributes(array $attributes): self
     {
         $this->attributes = $attributes;
+
         return $this;
     }
 }
