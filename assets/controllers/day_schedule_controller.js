@@ -1,15 +1,10 @@
 import { Controller } from '@hotwired/stimulus';
 
 const STATE_CLOSED = 'closed';
-const STATE_COLLAPSED = 'collapsed'; // ~60% экрана
-const STATE_EXPANDED = 'expanded'; // 100% экрана
+const STATE_COLLAPSED = 'collapsed';
+const STATE_EXPANDED = 'expanded';
 const SWIPE_THRESHOLD_PX = 60;
 
-/**
- * Всплывающее снизу меню просмотра расписания конкретного дня.
- * Открывается по событию "calendar:day-selected" от calendar_controller.
- * Список часов -> клик разворачивает список бронирований этого часа по минутам.
- */
 export default class extends Controller {
     static targets = ['sheet', 'backdrop', 'dateLabel', 'list'];
 
@@ -33,7 +28,6 @@ export default class extends Controller {
         this.backdropTarget.hidden = false;
         this.sheetTarget.hidden = false;
 
-        // rAF, чтобы браузер успел применить hidden=false до включения transition-класса.
         requestAnimationFrame(() => this.setState(STATE_COLLAPSED));
     }
 
@@ -52,8 +46,6 @@ export default class extends Controller {
         this.sheetTarget.style.transform = '';
         this.backdropTarget.classList.toggle('is-visible', state !== STATE_CLOSED);
     }
-
-    // --- Свайпы --------------------------------------------------------------
 
     touchStart(event) {
         this.dragStartY = event.touches[0].clientY;
@@ -76,14 +68,12 @@ export default class extends Controller {
         this.sheetTarget.style.transform = '';
 
         if (delta > SWIPE_THRESHOLD_PX) {
-            // Свайп вниз
             if (this.state === STATE_EXPANDED) {
                 this.setState(STATE_COLLAPSED);
             } else {
                 this.close();
             }
         } else if (delta < -SWIPE_THRESHOLD_PX) {
-            // Свайп вверх
             this.setState(STATE_EXPANDED);
         } else {
             this.setState(this.state === STATE_CLOSED ? STATE_COLLAPSED : this.state);
@@ -93,14 +83,12 @@ export default class extends Controller {
         this.dragCurrentY = null;
     }
 
-    // --- Рендер списка ---------------------------------------------------------
-
     renderList(bookings) {
         this.listTarget.innerHTML = '';
 
         if (!bookings.length) {
             const empty = document.createElement('p');
-            empty.className = 'day-sheet__empty';
+            empty.className = 'schedule-empty';
             empty.textContent = 'На этот день пока нет бронирований';
             this.listTarget.appendChild(empty);
             return;
@@ -170,7 +158,6 @@ export default class extends Controller {
         visible.forEach((booking) => {
             const avatar = document.createElement('span');
             avatar.className = 'avatar';
-            // user_id в брони не обязателен по спеке — если его нет, показываем заглушку.
             if (booking.user_id) {
                 const img = document.createElement('img');
                 img.src = `/integration/telegram/user-avatar/${booking.user_id}`;
@@ -196,8 +183,6 @@ export default class extends Controller {
     toggleHour(event) {
         event.currentTarget.closest('.hour-item').classList.toggle('is-open');
     }
-
-    // --- Форматирование -----------------------------------------------------
 
     formatDate(dateKey) {
         const date = new Date(`${dateKey}T00:00:00`);
