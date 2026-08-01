@@ -7,13 +7,12 @@
 {% block body_data %}
     data-awaits-content-ready="true"
     data-day-view-date-value="{{ date is defined ? date|date('Y-m-d') : '' }}"
-    data-day-view-bookings-url-value="/business/bookings"
+    data-day-view-bookings-url-value="{{ app_urls.business_bookings }}"
 {% endblock %}
 
 {% block content %}
     <header class="page-header">
-        {# TODO: заменить href="/" на {{ path('app_home') }}, когда роут будет назван #}
-        <a class="app-back" href="/" aria-label="Назад">‹</a>
+        <a class="app-back" href="{{ app_urls.home }}" aria-label="Назад">‹</a>
         <h2 class="page-header__title" data-day-view-target="dateLabel">Расписание дня</h2>
     </header>
 
