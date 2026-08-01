@@ -1,4 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
+import { authorizedFetch } from '../api.js';
 
 const STATE_CLOSED = 'closed';
 const STATE_COLLAPSED = 'collapsed';
@@ -11,10 +12,9 @@ const EQUIPMENT_LABELS = {
     'air-conditioners': 'Кондиционер',
     'office-attributes': 'Канцелярский набор',
     tables: 'Столы',
+    'power-outlets': 'Розетки',
 };
-const EQUIPMENT_ORDER = ['displays', 'boards', 'air-conditioners', 'office-attributes', 'tables'];
-
-const BOOKINGS_URL = '/business/bookings';
+const EQUIPMENT_ORDER = Object.keys(EQUIPMENT_LABELS);
 
 export default class extends Controller {
     static targets = [
@@ -23,6 +23,7 @@ export default class extends Controller {
         'peopleInput', 'equipmentList', 'counterTemplate',
         'submit', 'submitText', 'spinner',
     ];
+    static values = { bookUrl: String };
 
     connect() {
         this.state = STATE_CLOSED;
@@ -45,7 +46,6 @@ export default class extends Controller {
     open(room) {
         this.room = room;
         this.reset();
-
         this.roomNameTarget.textContent = room.name || '';
         this.renderEquipmentCounters(room.attributes || []);
 
@@ -172,9 +172,7 @@ export default class extends Controller {
     renderEquipmentCounters(attributes) {
         const byType = new Map();
         attributes.forEach((attribute) => {
-            if (attribute && attribute.type) {
-                byType.set(attribute.type, attribute);
-            }
+            if (attribute && attribute.type) byType.set(attribute.type, attribute);
         });
 
         EQUIPMENT_ORDER.forEach((type) => {
@@ -203,8 +201,7 @@ export default class extends Controller {
         const row = event.currentTarget.closest('.counter-field');
         const max = Number(row.dataset.max);
         const valueEl = row.querySelector('[data-booking-form-target="counterValue"]');
-        const current = Number(valueEl.textContent);
-        const next = Math.min(current + 1, max);
+        const next = Math.min(Number(valueEl.textContent) + 1, max);
         valueEl.textContent = String(next);
         this.updateCounterButtons(row, next, max);
     }
@@ -213,8 +210,7 @@ export default class extends Controller {
         const row = event.currentTarget.closest('.counter-field');
         const max = Number(row.dataset.max);
         const valueEl = row.querySelector('[data-booking-form-target="counterValue"]');
-        const current = Number(valueEl.textContent);
-        const next = Math.max(current - 1, 0);
+        const next = Math.max(Number(valueEl.textContent) - 1, 0);
         valueEl.textContent = String(next);
         this.updateCounterButtons(row, next, max);
     }
@@ -236,10 +232,7 @@ export default class extends Controller {
 
     async submit(event) {
         event.preventDefault();
-
-        if (!this.validateBeforeSubmit()) {
-            return;
-        }
+        if (!this.validateBeforeSubmit()) return;
 
         this.hideAlert();
         this.setSubmitting(true);
@@ -252,9 +245,9 @@ export default class extends Controller {
         };
 
         try {
-            const response = await fetch(BOOKINGS_URL, {
+            const response = await authorizedFetch(this.bookUrlValue, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
 
@@ -264,8 +257,7 @@ export default class extends Controller {
             }
 
             if (response.status === 400) {
-                const body = await response.json().catch(() => null);
-                this.handleValidationError(body);
+                this.handleValidationError(await response.json().catch(() => null));
                 return;
             }
 

@@ -1,85 +1,51 @@
 import { Controller } from '@hotwired/stimulus';
-import { setAuthorizedImageSrc } from '../api.js';
-
-const STATE_CLOSED = 'closed';
-const STATE_COLLAPSED = 'collapsed';
-const STATE_EXPANDED = 'expanded';
-const SWIPE_THRESHOLD_PX = 60;
+import { authorizedFetch, setAuthorizedImageSrc } from '../api.js';
 
 export default class extends Controller {
-    static targets = ['backdrop', 'sheet', 'dateLabel', 'list'];
+    static targets = ['dateLabel', 'list', 'empty'];
+    static values = { date: String, bookingsUrl: String };
 
     connect() {
-        this.state = STATE_CLOSED;
-        this.dragStartY = null;
-        this.dragCurrentY = null;
-
-        this.onDaySelected = (event) => this.open(event.detail);
-        document.addEventListener('calendar:day-selected', this.onDaySelected);
+        this.date = this.parseDate(this.dateValue);
+        this.dateLabelTarget.textContent = this.formatDate(this.date);
+        this.loadBookings();
     }
 
-    disconnect() {
-        document.removeEventListener('calendar:day-selected', this.onDaySelected);
-    }
-
-    open({ date, bookings }) {
-        this.dateLabelTarget.textContent = this.formatDate(date);
-        this.renderList(bookings);
-
-        this.backdropTarget.hidden = false;
-        this.sheetTarget.hidden = false;
-        requestAnimationFrame(() => this.setState(STATE_COLLAPSED));
-    }
-
-    close() {
-        this.setState(STATE_CLOSED);
-        window.setTimeout(() => {
-            this.sheetTarget.hidden = true;
-            this.backdropTarget.hidden = true;
-        }, 250);
-    }
-
-    setState(state) {
-        this.state = state;
-        this.sheetTarget.classList.remove('is-collapsed', 'is-expanded', 'is-closed');
-        this.sheetTarget.classList.add(`is-${state}`);
-        this.sheetTarget.style.transform = '';
-        this.backdropTarget.classList.toggle('is-visible', state !== STATE_CLOSED);
-    }
-
-    touchStart(event) {
-        this.dragStartY = event.touches[0].clientY;
-        this.dragCurrentY = this.dragStartY;
-        this.sheetTarget.classList.add('is-dragging');
-    }
-
-    touchMove(event) {
-        if (this.dragStartY === null) return;
-        this.dragCurrentY = event.touches[0].clientY;
-        const delta = this.dragCurrentY - this.dragStartY;
-        this.sheetTarget.style.transform = `translateY(${Math.max(delta, -window.innerHeight)}px)`;
-    }
-
-    touchEnd() {
-        if (this.dragStartY === null) return;
-        const delta = this.dragCurrentY - this.dragStartY;
-        this.sheetTarget.classList.remove('is-dragging');
-        this.sheetTarget.style.transform = '';
-
-        if (delta > SWIPE_THRESHOLD_PX) {
-            if (this.state === STATE_EXPANDED) {
-                this.setState(STATE_COLLAPSED);
-            } else {
-                this.close();
-            }
-        } else if (delta < -SWIPE_THRESHOLD_PX) {
-            this.setState(STATE_EXPANDED);
-        } else {
-            this.setState(this.state === STATE_CLOSED ? STATE_COLLAPSED : this.state);
+    parseDate(value) {
+        if (value) {
+            const parsed = new Date(`${value}T00:00:00`);
+            if (!Number.isNaN(parsed.getTime())) return parsed;
         }
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return today;
+    }
 
-        this.dragStartY = null;
-        this.dragCurrentY = null;
+    async loadBookings() {
+        try {
+            this.renderList(await this.fetchBookings());
+        } catch (error) {
+            console.error(error);
+            this.emptyTarget.textContent = 'Не удалось загрузить расписание';
+            this.emptyTarget.hidden = false;
+        } finally {
+            document.dispatchEvent(new CustomEvent('app:content-ready'));
+        }
+    }
+
+    async fetchBookings() {
+        const start = new Date(this.date);
+        const end = new Date(this.date);
+        end.setDate(end.getDate() + 1);
+
+        const url = new URL(this.bookingsUrlValue, window.location.origin);
+        url.searchParams.set('from', Math.floor(start.getTime() / 1000));
+        url.searchParams.set('to', Math.floor(end.getTime() / 1000));
+
+        const response = await authorizedFetch(url.toString());
+        if (!response.ok) throw new Error(`Не удалось загрузить бронирования: ${response.status}`);
+
+        return response.json();
     }
 
     renderList(bookings) {
@@ -117,7 +83,7 @@ export default class extends Controller {
         const row = document.createElement('button');
         row.type = 'button';
         row.className = 'hour-item__row';
-        row.dataset.action = 'day-schedule#toggleHour';
+        row.dataset.action = 'day-view#toggleHour';
 
         const time = document.createElement('span');
         time.className = 'hour-item__time';
@@ -183,8 +149,7 @@ export default class extends Controller {
         event.currentTarget.closest('.hour-item').classList.toggle('is-open');
     }
 
-    formatDate(dateKey) {
-        const date = new Date(`${dateKey}T00:00:00`);
+    formatDate(date) {
         return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'long' });
     }
 

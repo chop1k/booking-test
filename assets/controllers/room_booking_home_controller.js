@@ -1,4 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
+import { authorizedFetch, setAuthorizedImageSrc } from '../api.js';
 
 export default class extends Controller {
     static targets = ['collage'];
@@ -23,11 +24,10 @@ export default class extends Controller {
 
     async loadRooms() {
         try {
-            const response = await fetch(this.roomsUrlValue, { headers: { Accept: 'application/json' } });
-            if (!response.ok) {
-                throw new Error(`Не удалось загрузить комнаты: ${response.status}`);
-            }
+            const response = await authorizedFetch(this.roomsUrlValue);
+            if (!response.ok) throw new Error(`Не удалось загрузить комнаты: ${response.status}`);
             const rooms = await response.json();
+            // Решение: если комнат не ровно 3 — всегда берём первые 3 по порядку ответа API.
             this.renderCollage(rooms.slice(0, 3));
         } catch (error) {
             console.error(error);
@@ -51,9 +51,9 @@ export default class extends Controller {
 
             if (attachment) {
                 const img = document.createElement('img');
-                img.src = `/system/storage/files/${attachment.id}/content`;
                 img.alt = room.name || '';
                 img.loading = 'lazy';
+                setAuthorizedImageSrc(img, window.appUrls.fileContent.replace('__ID__', attachment.id));
                 slot.appendChild(img);
             } else {
                 slot.classList.add('collage__slot--placeholder');

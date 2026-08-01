@@ -1,6 +1,8 @@
 import { Controller } from '@hotwired/stimulus';
+import { authorizedFetch, setAuthorizedImageSrc } from '../api.js';
 
-const EQUIPMENT_TYPES = ['displays', 'boards', 'air-conditioners', 'office-attributes', 'tables'];
+// "seats" сюда не входит — количество мест показывается отдельно числом.
+const EQUIPMENT_TYPES = ['displays', 'boards', 'air-conditioners', 'office-attributes', 'tables', 'power-outlets'];
 
 export default class extends Controller {
     static targets = ['list', 'empty', 'cardTemplate'];
@@ -13,12 +15,9 @@ export default class extends Controller {
 
     async loadRooms() {
         try {
-            const response = await fetch(this.roomsUrlValue, { headers: { Accept: 'application/json' } });
-            if (!response.ok) {
-                throw new Error(`Не удалось загрузить комнаты: ${response.status}`);
-            }
-            const rooms = await response.json();
-            this.renderRooms(rooms);
+            const response = await authorizedFetch(this.roomsUrlValue);
+            if (!response.ok) throw new Error(`Не удалось загрузить комнаты: ${response.status}`);
+            this.renderRooms(await response.json());
         } catch (error) {
             console.error(error);
             this.emptyTarget.textContent = 'Не удалось загрузить список комнат';
@@ -50,14 +49,13 @@ export default class extends Controller {
             const equipment = fragment.querySelector('[data-room-selection-target="cardEquipment"]');
 
             link.dataset.roomId = roomId;
-
             name.textContent = room.name || '';
             description.textContent = room.description || '';
 
             const attachment = room.attachments && room.attachments[0];
             if (attachment) {
-                photo.src = `/system/storage/files/${attachment.id}/content`;
                 photo.alt = room.name || '';
+                setAuthorizedImageSrc(photo, window.appUrls.fileContent.replace('__ID__', attachment.id));
             } else {
                 photo.remove();
             }
@@ -65,9 +63,8 @@ export default class extends Controller {
             const attributesByType = this.groupAttributesByType(room.attributes || []);
 
             const seats = attributesByType.get('seats');
-            seatsValue.textContent = seats
-                ? String(seats.capacity ?? seats.count ?? 0)
-                : '0';
+            // Показываем capacity (вместимость), если она указана, иначе count.
+            seatsValue.textContent = seats ? String(seats.capacity ?? seats.count ?? 0) : '0';
 
             EQUIPMENT_TYPES.forEach((type) => {
                 const attribute = attributesByType.get(type);
@@ -86,9 +83,7 @@ export default class extends Controller {
     groupAttributesByType(attributes) {
         const byType = new Map();
         attributes.forEach((attribute) => {
-            if (attribute && attribute.type) {
-                byType.set(attribute.type, attribute);
-            }
+            if (attribute && attribute.type) byType.set(attribute.type, attribute);
         });
         return byType;
     }

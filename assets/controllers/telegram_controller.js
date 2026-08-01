@@ -1,16 +1,19 @@
 import { Controller } from '@hotwired/stimulus';
 
+// Turbo подменяет только <body>, поэтому window.Telegram.WebApp не пересоздаётся между
+// переходами — ready() имеет смысл вызвать один раз за сессию.
 let readyCalledOnce = false;
 
 export default class extends Controller {
     connect() {
         this.tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-
         this.applyTheme();
 
         this.onContentReady = () => this.markReady();
         document.addEventListener('app:content-ready', this.onContentReady);
 
+        // Страницы без асинхронной загрузки данных не помечены data-awaits-content-ready —
+        // для них готовность засчитывается сразу.
         if (this.element.dataset.awaitsContentReady !== 'true') {
             this.markReady();
         }
@@ -28,7 +31,6 @@ export default class extends Controller {
         const root = document.documentElement;
 
         if (!this.tg) {
-            // Работаем вне Telegram (например, локальная разработка) — оставляем CSS-фолбэки.
             root.dataset.tgScheme = 'light';
             return;
         }
@@ -79,9 +81,7 @@ export default class extends Controller {
     markReady() {
         document.body.classList.add('is-ready');
 
-        if (!this.tg) {
-            return;
-        }
+        if (!this.tg) return;
 
         if (!readyCalledOnce) {
             readyCalledOnce = true;
