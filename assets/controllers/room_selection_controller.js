@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { authorizedFetch, setAuthorizedImageSrc } from '../api.js';
+import { authorizedFetch } from '../api.js';
 
 // "seats" сюда не входит — количество мест показывается отдельно числом.
 const EQUIPMENT_TYPES = ['displays', 'boards', 'air-conditioners', 'office-attributes', 'tables', 'power-outlets'];
@@ -54,8 +54,8 @@ export default class extends Controller {
 
             const attachment = room.attachments && room.attachments[0];
             if (attachment) {
+                photo.src = attachment;
                 photo.alt = room.name || '';
-                setAuthorizedImageSrc(photo, window.appUrls.fileContent.replace('__ID__', attachment.id));
             } else {
                 photo.remove();
             }

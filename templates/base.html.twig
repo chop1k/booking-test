@@ -3,7 +3,6 @@
     rooms: '/web/rooms',
     business_rooms: '/business/rooms',
     business_bookings: '/business/bookings',
-    file_content_template: '/system/storage/files/__ID__/content',
     user_avatar_template: '/integration/telegram/user-avatar/__ID__',
 } %}
 
@@ -17,7 +16,6 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
         window.appUrls = {
-            fileContent: "{{ app_urls.file_content_template }}",
             userAvatar: "{{ app_urls.user_avatar_template }}",
         };
     </script>

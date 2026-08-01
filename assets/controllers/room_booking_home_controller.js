@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { authorizedFetch, setAuthorizedImageSrc } from '../api.js';
+import { authorizedFetch } from '../api.js';
 
 export default class extends Controller {
     static targets = ['collage'];
@@ -51,9 +51,9 @@ export default class extends Controller {
 
             if (attachment) {
                 const img = document.createElement('img');
+                img.src = attachment;
                 img.alt = room.name || '';
                 img.loading = 'lazy';
-                setAuthorizedImageSrc(img, window.appUrls.fileContent.replace('__ID__', attachment.id));
                 slot.appendChild(img);
             } else {
                 slot.classList.add('collage__slot--placeholder');

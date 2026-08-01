@@ -6,6 +6,7 @@ const STATE_COLLAPSED = 'collapsed';
 const STATE_EXPANDED = 'expanded';
 const SWIPE_THRESHOLD_PX = 60;
 
+// "seats" сюда не входит — это отдельное поле "ожидаемое количество людей".
 const EQUIPMENT_LABELS = {
     displays: 'Проектор / экран',
     boards: 'Доска для рисования',
@@ -19,7 +20,7 @@ const EQUIPMENT_ORDER = Object.keys(EQUIPMENT_LABELS);
 export default class extends Controller {
     static targets = [
         'backdrop', 'sheet', 'roomName', 'form', 'alert',
-        'startField', 'startValue', 'endField', 'endValue',
+        'startField', 'startValue', 'startInput', 'endField', 'endValue', 'endInput',
         'peopleInput', 'equipmentList', 'counterTemplate',
         'submit', 'submitText', 'spinner',
     ];
@@ -30,17 +31,12 @@ export default class extends Controller {
         this.dragStartY = null;
         this.dragCurrentY = null;
 
-        this.startInput = this.createHiddenDateTimeInput((value) => this.onStartChanged(value));
-        this.endInput = this.createHiddenDateTimeInput((value) => this.onEndChanged(value));
-
         this.onRoomChosen = (event) => this.open(event.detail.room);
         document.addEventListener('room-selection:room-chosen', this.onRoomChosen);
     }
 
     disconnect() {
         document.removeEventListener('room-selection:room-chosen', this.onRoomChosen);
-        this.startInput.remove();
-        this.endInput.remove();
     }
 
     open(room) {
@@ -65,8 +61,8 @@ export default class extends Controller {
     reset() {
         this.startsAt = null;
         this.endsAt = null;
-        this.startInput.value = '';
-        this.endInput.value = '';
+        this.startInputTarget.value = '';
+        this.endInputTarget.value = '';
         this.startValueTarget.textContent = 'Выбрать дату и время';
         this.endValueTarget.textContent = 'Выбрать дату и время';
         this.startFieldTarget.classList.remove('is-valid', 'is-invalid');
@@ -120,44 +116,15 @@ export default class extends Controller {
         this.dragCurrentY = null;
     }
 
-    createHiddenDateTimeInput(onChange) {
-        const input = document.createElement('input');
-        input.type = 'datetime-local';
-        input.style.position = 'fixed';
-        input.style.left = '-9999px';
-        input.style.width = '1px';
-        input.style.height = '1px';
-        input.style.opacity = '0';
-        input.tabIndex = -1;
-        input.addEventListener('change', () => onChange(input.value));
-        this.element.appendChild(input);
-        return input;
-    }
-
-    openDateTimePicker(input) {
-        if (typeof input.showPicker === 'function') {
-            input.showPicker();
-        } else {
-            input.focus();
-            input.click();
-        }
-    }
-
-    pickStart() {
-        this.openDateTimePicker(this.startInput);
-    }
-
-    pickEnd() {
-        this.openDateTimePicker(this.endInput);
-    }
-
-    onStartChanged(value) {
+    onStartChanged(event) {
+        const value = event.target.value;
         this.startsAt = value ? new Date(value) : null;
         this.startValueTarget.textContent = this.startsAt ? this.formatDateTime(this.startsAt) : 'Выбрать дату и время';
         this.startFieldTarget.classList.remove('is-invalid');
     }
 
-    onEndChanged(value) {
+    onEndChanged(event) {
+        const value = event.target.value;
         this.endsAt = value ? new Date(value) : null;
         this.endValueTarget.textContent = this.endsAt ? this.formatDateTime(this.endsAt) : 'Выбрать дату и время';
         this.endFieldTarget.classList.remove('is-invalid');
@@ -237,6 +204,8 @@ export default class extends Controller {
         this.hideAlert();
         this.setSubmitting(true);
 
+        // ВНИМАНИЕ: BookingForm в спеке не содержит поля под "ожидаемое количество людей" —
+        // оно используется только для локальной проверки и не отправляется на бэкенд.
         const payload = {
             room_id: Number(this.room.id),
             starts_at: this.startsAt.toISOString(),

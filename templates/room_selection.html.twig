@@ -91,25 +91,29 @@
             <form class="booking-form" data-booking-form-target="form" data-action="submit->booking-form#submit">
                 <div class="booking-form__alert" data-booking-form-target="alert" hidden></div>
 
-                <button
-                    type="button"
-                    class="booking-form__field booking-form__field--picker"
-                    data-booking-form-target="startField"
-                    data-action="booking-form#pickStart"
-                >
+                <div class="booking-form__field booking-form__field--picker" data-booking-form-target="startField">
                     <span class="booking-form__label">Начало бронирования</span>
                     <span class="booking-form__value" data-booking-form-target="startValue">Выбрать дату и время</span>
-                </button>
+                    <input
+                        type="datetime-local"
+                        class="booking-form__field-input"
+                        data-booking-form-target="startInput"
+                        data-action="change->booking-form#onStartChanged"
+                        aria-label="Начало бронирования"
+                    >
+                </div>
 
-                <button
-                    type="button"
-                    class="booking-form__field booking-form__field--picker"
-                    data-booking-form-target="endField"
-                    data-action="booking-form#pickEnd"
-                >
+                <div class="booking-form__field booking-form__field--picker" data-booking-form-target="endField">
                     <span class="booking-form__label">Окончание бронирования</span>
                     <span class="booking-form__value" data-booking-form-target="endValue">Выбрать дату и время</span>
-                </button>
+                    <input
+                        type="datetime-local"
+                        class="booking-form__field-input"
+                        data-booking-form-target="endInput"
+                        data-action="change->booking-form#onEndChanged"
+                        aria-label="Окончание бронирования"
+                    >
+                </div>
 
                 <label class="booking-form__field">
                     <span class="booking-form__label">Ожидаемое количество людей</span>

@@ -1,5 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 import { setAuthorizedImageSrc } from '../api.js';
+import { renderScheduleEmptyState } from '../ui.js';
 
 const STATE_CLOSED = 'closed';
 const STATE_COLLAPSED = 'collapsed';
@@ -86,10 +87,7 @@ export default class extends Controller {
         this.listTarget.innerHTML = '';
 
         if (!bookings.length) {
-            const empty = document.createElement('p');
-            empty.className = 'schedule-empty';
-            empty.textContent = 'На этот день пока нет бронирований';
-            this.listTarget.appendChild(empty);
+            renderScheduleEmptyState(this.listTarget, 'На этот день пока нет бронирований');
             return;
         }
 
