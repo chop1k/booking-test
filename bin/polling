@@ -1,0 +1,284 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+error_reporting(E_ALL);
+
+const STICKER_ID = 'CAACAgIAAxkBAAMNamsl3Q_tjFcjet4-UyfkEdMFOd0AAtyGAALVUjhLcqtu261XqJw9BA';
+
+$telegramToken = getenv('TELEGRAM_TOKEN');
+$accessToken   = getenv('ACCESS_TOKEN');
+$registerUrl   = getenv('REGISTER_URL');
+$proxy         = getenv('HTTPS_PROXY');
+
+if (!$telegramToken) {
+    fwrite(STDERR, "TELEGRAM_TOKEN is required\n");
+    exit(1);
+}
+
+if (!$accessToken) {
+    fwrite(STDERR, "ACCESS_TOKEN is required\n");
+    exit(1);
+}
+
+if (!$registerUrl) {
+    fwrite(STDERR, "REGISTER_URL is required\n");
+    exit(1);
+}
+
+$api = "https://api.telegram.org/bot{$telegramToken}";
+
+$dbFile = __DIR__ . '/users.json';
+
+$messages = [
+    'Вы ходите по весьма тонкому льду...',
+    'Ты думаешь я с тобой тут шутки шучу?',
+    'Моё терпение не вечно.',
+    'Какая наглость...',
+    'Одна ошибка и ты ошибся',
+];
+
+$db = loadDatabase($dbFile);
+
+telegram('deleteWebhook');
+
+$offset = restoreOffset($db);
+
+while (true) {
+    try {
+
+        $updates = telegram('getUpdates', [
+            'offset' => $offset,
+            'timeout' => 30,
+            'allowed_updates' => json_encode(['message']),
+        ]);
+
+        if (!isset($updates['result'])) {
+            sleep(1);
+            continue;
+        }
+
+        foreach ($updates['result'] as $update) {
+
+            $offset = $update['update_id'] + 1;
+
+            $db['_offset'] = $offset;
+            saveDatabase($dbFile, $db);
+
+            if (!isset($update['message']['text'])) {
+                continue;
+            }
+
+            $message = trim($update['message']['text']);
+
+            $chatId = $update['message']['chat']['id'];
+            $userId = $update['message']['from']['id'];
+
+            if (!isset($db['users'][$userId])) {
+                $db['users'][$userId] = [
+                    'fails' => 0,
+                    'blocked_until' => 0,
+                ];
+            }
+
+            $user =& $db['users'][$userId];
+
+            if ($user['blocked_until'] > time()) {
+                continue;
+            }
+
+            if (str_starts_with($message, '/start')) {
+
+                telegram('sendMessage', [
+                    'chat_id' => $chatId,
+                    'text' => 'Гони токен!',
+                ]);
+
+                telegram('sendSticker', [
+                    'chat_id' => $chatId,
+                    'sticker' => STICKER_ID,
+                ]);
+
+                continue;
+            }
+
+            if ($message === $accessToken) {
+
+                registerUser($registerUrl, $chatId, $accessToken);
+
+                $user['fails'] = 0;
+                $user['blocked_until'] = 0;
+
+                saveDatabase($dbFile, $db);
+
+                telegram('sendMessage', [
+                    'chat_id' => $chatId,
+                    'text' => 'Вот так бы сразу...',
+                    'reply_markup' => json_encode([
+                        'inline_keyboard' => [
+                            [
+                                [
+                                    'text' => 'Открыть',
+                                    'url' => 'https://example.com'
+                                ]
+                            ]
+                        ]
+                    ]),
+                ]);
+
+                continue;
+            }
+
+            $user['fails']++;
+
+            if ($user['fails'] >= 3) {
+                $user['fails'] = 0;
+                $user['blocked_until'] = time() + 3600;
+            }
+
+            saveDatabase($dbFile, $db);
+
+            telegram('sendMessage', [
+                'chat_id' => $chatId,
+                'text' => $messages[array_rand($messages)],
+            ]);
+
+            telegram('sendSticker', [
+                'chat_id' => $chatId,
+                'sticker' => STICKER_ID,
+            ]);
+
+        }
+
+    } catch (Throwable $e) {
+        fwrite(STDERR, date('c') . ' ' . $e->getMessage() . PHP_EOL);
+        sleep(5);
+    }
+}
+
+function telegram(string $method, array $params = []): array
+{
+    global $api;
+    global $proxy;
+
+    $ch = curl_init();
+
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $api . '/' . $method,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $params,
+        CURLOPT_TIMEOUT => 40,
+        CURLOPT_CONNECTTIMEOUT => 10,
+    ]);
+
+    if ($proxy) {
+        curl_setopt($ch, CURLOPT_PROXY, $proxy);
+    }
+
+    $response = curl_exec($ch);
+
+    if ($response === false) {
+        throw new RuntimeException(curl_error($ch));
+    }
+
+    $json = json_decode($response, true);
+
+    if (!is_array($json)) {
+        throw new RuntimeException('Invalid Telegram response');
+    }
+
+    return $json;
+}
+
+function registerUser(string $url, int|string $chatId, string $token): void
+{
+    $ch = curl_init();
+
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $url,
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 20,
+        CURLOPT_POSTFIELDS => json_encode([
+            'chat_id' => $chatId,
+            'token' => $token,
+        ]),
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json'
+        ]
+    ]);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    $curlErrno = curl_errno($ch);
+
+    if ($response === false) {
+        echo "Ошибка cURL: " . $curlError . " (код: " . $curlErrno . ")\n";
+        return;
+    }
+
+    if ($httpCode < 200 || $httpCode >= 300) {
+        echo "Ошибка HTTP: получен статус " . $httpCode . "\n";
+
+        // Пытаемся декодировать JSON ответ для получения деталей ошибки
+        $responseData = json_decode($response, true);
+        if (json_last_error() === JSON_ERROR_NONE && isset($responseData['error'])) {
+            echo "Причина: " . $responseData['error'] . "\n";
+        } elseif (!empty($response)) {
+            echo "Ответ сервера: " . $response . "\n";
+        }
+        return;
+    }
+
+    $responseData = json_decode($response, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        echo "Ошибка: некорректный JSON в ответе\n";
+        echo "Ответ сервера: " . $response . "\n";
+        return;
+    }
+
+    if (isset($responseData['success']) && $responseData['success'] === false) {
+        echo "Ошибка регистрации: " . ($responseData['message'] ?? 'Неизвестная ошибка') . "\n";
+        return;
+    }
+
+    echo "Пользователь успешно зарегистрирован\n";
+}
+
+function loadDatabase(string $file): array
+{
+    if (!file_exists($file)) {
+        return [
+            '_offset' => 0,
+            'users' => [],
+        ];
+    }
+
+    $json = json_decode(file_get_contents($file), true);
+
+    if (!is_array($json)) {
+        return [
+            '_offset' => 0,
+            'users' => [],
+        ];
+    }
+
+    return $json;
+}
+
+function saveDatabase(string $file, array $db): void
+{
+    file_put_contents(
+        $file,
+        json_encode($db, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
+        LOCK_EX
+    );
+}
+
+function restoreOffset(array $db): int
+{
+    return (int)($db['_offset'] ?? 0);
+}
