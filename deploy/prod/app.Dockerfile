@@ -1,6 +1,7 @@
 FROM php:8.4-fpm-alpine
 
 ADD --chmod=0755 \
+    --checksum=sha256:7c133ae4b9490d912287188c62ea570729cfa74f0ea357e4be672ce696b4aa29 \
     https://github.com/mlocati/docker-php-extension-installer/releases/download/2.11.12/install-php-extensions \
     /usr/local/bin/install-php-extensions
 
@@ -14,7 +15,8 @@ RUN apk add --no-cache \
         apcu \
         intl \
         sqlite3 \
-        pdo_sqlite
+        pdo_sqlite \
+        curl
 
 WORKDIR /app
 
