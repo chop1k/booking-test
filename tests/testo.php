@@ -10,6 +10,6 @@ return new ApplicationConfig(
         new SuiteConfig(
             name: 'e2e',
             location: ['tests/E2E'],
-        )
+        ),
     ],
 );
