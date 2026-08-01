@@ -43,7 +43,7 @@ services:
 
     volumes:
       - static-files:/app/public/assets:ro
-      - ./deploy/prod/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
 
     networks:
       - app_network

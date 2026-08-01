@@ -1,4 +1,4 @@
-FROM php:8.4-fpm-alpine
+FROM php:8.5-fpm-alpine
 
 ADD --chmod=0755 \
     --checksum=sha256:7c133ae4b9490d912287188c62ea570729cfa74f0ea357e4be672ce696b4aa29 \
@@ -7,16 +7,13 @@ ADD --chmod=0755 \
 
 ENV COMPOSER_ALLOW_SUPERUSER=1
 
-RUN apk add --no-cache \
-        curl \
-    && install-php-extensions \
+RUN install-php-extensions \
         @composer \
         opcache \
         apcu \
         intl \
         sqlite3 \
-        pdo_sqlite \
-        curl
+        pdo_sqlite
 
 WORKDIR /app
 
