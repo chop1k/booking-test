@@ -23,7 +23,7 @@ class FileRepository extends ServiceEntityRepository
     {
         $file = $this->find($id);
 
-        if ($file === null) {
+        if (null === $file) {
             throw EntityNotFoundException::fromClassNameAndIdentifier(File::class, [(string) $id]);
         }
 

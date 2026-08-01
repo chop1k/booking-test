@@ -23,7 +23,7 @@ class UserRepository extends ServiceEntityRepository
     {
         $user = $this->find($id);
 
-        if ($user === null) {
+        if (null === $user) {
             throw EntityNotFoundException::fromClassNameAndIdentifier(User::class, [(string) $id]);
         }
 

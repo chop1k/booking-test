@@ -46,7 +46,7 @@ class TGAAuthenticator extends AbstractAuthenticator
         ksort($data);
 
         $checkString = implode("\n", array_map(
-            fn($key, $value) => "$key=$value",
+            fn ($key, $value) => "$key=$value",
             array_keys($data),
             $data
         ));
@@ -78,7 +78,7 @@ class TGAAuthenticator extends AbstractAuthenticator
     {
         $id = (int) $id;
 
-        if ($id === 0) {
+        if (0 === $id) {
             throw new AuthenticationException('Cannot convert id to an integer');
         }
 

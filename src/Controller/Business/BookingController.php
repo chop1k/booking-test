@@ -14,7 +14,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class BookingController extends AbstractController
 {
     #[Route('', name: 'business_get_bookings', methods: ['GET'])]
-    public function getBookings(Request $request): JsonResponse
+    public function bookings(Request $request): JsonResponse
     {
         $testBookings = [
             [
@@ -85,7 +85,7 @@ class BookingController extends AbstractController
     }
 
     #[Route('/bookings', name: 'business_book_room', methods: ['POST'])]
-    public function bookRoom(Request $request): JsonResponse
+    public function create(Request $request): JsonResponse
     {
         $testCreatedBooking = [
             'id' => 4,

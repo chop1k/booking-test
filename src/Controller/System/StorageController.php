@@ -37,7 +37,7 @@ class StorageController extends AbstractController
                 'id' => 3,
                 'path' => '/uploads/rooms/beta-main.jpg',
                 'size' => 189440,
-            ]
+            ],
         ];
 
         if (!isset($testFiles[$file_id])) {

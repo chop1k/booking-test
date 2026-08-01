@@ -6,6 +6,7 @@ namespace App\Entity;
 
 use App\Repository\UserRepository;
 use Doctrine\ORM\Mapping as ORM;
+use LogicException;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
@@ -21,8 +22,8 @@ class User implements UserInterface
 
     public function getUserIdentifier(): string
     {
-        if ($this->id === null) {
-            throw new \LogicException('The user Id property must be set.');
+        if (null === $this->id) {
+            throw new LogicException('The user Id property must be set.');
         }
 
         return (string) $this->id;

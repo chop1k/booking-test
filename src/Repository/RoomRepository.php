@@ -19,11 +19,7 @@ class RoomRepository extends ServiceEntityRepository
             'name' => 'Коворкинг',
             'description' => '',
             'attachments' => [
-                [
-                    'id' => 1,
-                    'path' => '/images/rooms/coworking.jpg',
-                    'size' => 245760,
-                ]
+                'path' => '/assets/images/rooms/coworking.jpg',
             ],
             'attributes' => [
                 [
@@ -38,7 +34,7 @@ class RoomRepository extends ServiceEntityRepository
                 [
                     'type' => 'air-conditioners',
                     'count' => 1,
-                ]
+                ],
             ],
         ],
         [
@@ -46,11 +42,7 @@ class RoomRepository extends ServiceEntityRepository
             'name' => 'Большая переговорная',
             'description' => 'Большая комната в ',
             'attachments' => [
-                [
-                    'id' => 2,
-                    'path' => '/images/rooms/big.jpg',
-                    'size' => 189440,
-                ],
+                'path' => '/assets/images/rooms/big.jpg',
             ],
             'attributes' => [
                 [
@@ -77,11 +69,7 @@ class RoomRepository extends ServiceEntityRepository
             'name' => 'Малая переговорная',
             'description' => 'Малая комната в ',
             'attachments' => [
-                [
-                    'id' => 3,
-                    'path' => '/images/rooms/small.jpg',
-                    'size' => 189440,
-                ],
+                '/assets/images/rooms/small.jpg',
             ],
             'attributes' => [
                 [
@@ -96,9 +84,9 @@ class RoomRepository extends ServiceEntityRepository
                 [
                     'type' => 'air-conditioners',
                     'count' => 1,
-                ]
+                ],
             ],
-        ]
+        ],
     ];
 
     public function __construct(ManagerRegistry $registry)

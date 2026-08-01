@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Entity;
 
 use App\Repository\BookingRepository;
+use Carbon\Carbon;
 use DateTimeInterface;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -19,9 +20,6 @@ class Booking
 
     #[ORM\Column(type: 'integer')]
     private int $roomId;
-
-    #[ORM\Column(type: 'string', enumType: BookingStatus::class)]
-    private BookingStatus $status;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private DateTimeInterface $startsAt;
@@ -58,14 +56,17 @@ class Booking
 
     public function getStatus(): BookingStatus
     {
-        return $this->status;
-    }
+        $now = Carbon::now();
 
-    public function setStatus(BookingStatus $status): self
-    {
-        $this->status = $status;
+        if ($now->isBefore($this->startsAt)) {
+            return BookingStatus::PENDING;
+        }
 
-        return $this;
+        if ($now->isAfter($this->endsAt)) {
+            return BookingStatus::FINISHED;
+        }
+
+        return BookingStatus::IN_USE;
     }
 
     public function getStartsAt(): DateTimeInterface
