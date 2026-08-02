@@ -132,11 +132,20 @@
     border: 1px solid transparent;
 }
 .booking-form__field--picker {
-    width: 100%;
-    text-align: left;
+    position: relative;
     cursor: pointer;
-    font: inherit;
-    color: inherit;
+}
+
+.booking-form__field-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: none;
+    opacity: 0;
+    cursor: pointer;
 }
 /* Красная/зелёная рамка — статус валидации поля после ответа сервера (см. ТЗ). */
 .booking-form__field.is-valid { border-color: #34c759; }
