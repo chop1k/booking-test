@@ -128,6 +128,7 @@
     font: inherit;
     color: inherit;
 }
+
 .booking-form__field.is-valid { border-color: #34c759; }
 .booking-form__field.is-invalid { border-color: var(--tg-destructive-text-color); }
 

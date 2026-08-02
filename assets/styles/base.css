@@ -373,6 +373,7 @@ button { font-family: inherit; }
 .calendar__day.is-selected.is-today .calendar__day-number { background: transparent; }
 
 .booking-form__alert {
+    margin-bottom: var(--space-3);
     padding: var(--space-3);
     border-radius: var(--radius-s);
     background: color-mix(in srgb, var(--tg-destructive-text-color) 12%, transparent);
