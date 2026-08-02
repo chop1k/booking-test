@@ -427,7 +427,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         resources?: Param|string|array<string, scalar|Param|null>,
  *     },
  *     messenger?: bool|array{ // Messenger configuration
- *         enabled?: bool|Param, // Default: true
+ *         enabled?: bool|Param, // Default: false
  *         routing?: array<string, Param|string|list<scalar|Param|null>>,
  *         serializer?: array{
  *             default_serializer?: scalar|Param|null, // Service id to use as the default serializer for the transports. // Default: "messenger.transport.native_php_serializer"
@@ -617,7 +617,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         decryption_env_var?: scalar|Param|null, // Default: "base64:default::SYMFONY_DECRYPTION_SECRET"
  *     },
  *     notifier?: bool|array{ // Notifier configuration
- *         enabled?: bool|Param, // Default: true
+ *         enabled?: bool|Param, // Default: false
  *         message_bus?: scalar|Param|null, // The message bus to use. Defaults to the default bus if the Messenger component is installed. // Default: null
  *         chatter_transports?: array<string, scalar|Param|null>,
  *         texter_transports?: array<string, scalar|Param|null>,
@@ -1518,13 +1518,14 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         security?: SecurityConfig,
  *         monolog?: MonologConfig,
  *     },
- *     "when@test"?: array{
+ *     "when@staging"?: array{
  *         imports?: ImportsConfig,
  *         parameters?: ParametersConfig,
  *         services?: ServicesConfig,
  *         framework?: FrameworkConfig,
  *         doctrine?: DoctrineConfig,
  *         doctrine_migrations?: DoctrineMigrationsConfig,
+ *         debug?: DebugConfig,
  *         twig?: TwigConfig,
  *         web_profiler?: WebProfilerConfig,
  *         stimulus?: StimulusConfig,
@@ -1532,6 +1533,24 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         twig_extra?: TwigExtraConfig,
  *         security?: SecurityConfig,
  *         monolog?: MonologConfig,
+ *         maker?: MakerConfig,
+ *     },
+ *     "when@test"?: array{
+ *         imports?: ImportsConfig,
+ *         parameters?: ParametersConfig,
+ *         services?: ServicesConfig,
+ *         framework?: FrameworkConfig,
+ *         doctrine?: DoctrineConfig,
+ *         doctrine_migrations?: DoctrineMigrationsConfig,
+ *         debug?: DebugConfig,
+ *         twig?: TwigConfig,
+ *         web_profiler?: WebProfilerConfig,
+ *         stimulus?: StimulusConfig,
+ *         turbo?: TurboConfig,
+ *         twig_extra?: TwigExtraConfig,
+ *         security?: SecurityConfig,
+ *         monolog?: MonologConfig,
+ *         maker?: MakerConfig,
  *     },
  *     ...<string, ExtensionType|array{ // extra keys must follow the when@%env% pattern or match an extension alias
  *         imports?: ImportsConfig,
@@ -1617,6 +1636,7 @@ namespace Symfony\Component\Routing\Loader\Configurator;
  * @psalm-type RoutesConfig = array{
  *     "when@dev"?: array<string, RouteConfig|ImportConfig|AliasConfig>,
  *     "when@prod"?: array<string, RouteConfig|ImportConfig|AliasConfig>,
+ *     "when@staging"?: array<string, RouteConfig|ImportConfig|AliasConfig>,
  *     "when@test"?: array<string, RouteConfig|ImportConfig|AliasConfig>,
  *     ...<string, RouteConfig|ImportConfig|AliasConfig>
  * }
