@@ -22,13 +22,18 @@ class BookingRepository extends ServiceEntityRepository
     /**
      * @return Booking[]
      */
-    public function findAll(?DateTimeInterface $from = null, ?DateTimeInterface $to = null): array
+    public function findAll(?int $roomId = null, ?DateTimeInterface $from = null, ?DateTimeInterface $to = null): array
     {
         if (null === $from && null === $to) {
             return parent::findAll();
         }
 
         $qb = $this->createQueryBuilder('b');
+
+        if (null !== $roomId) {
+            $qb->andWhere('b.roomId>= :id')
+                ->setParameter('id', $roomId);
+        }
 
         if (null !== $from) {
             $qb->andWhere('b.endsAt >= :from')

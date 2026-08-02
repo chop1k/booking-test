@@ -205,7 +205,7 @@ function registerUser(string $url, int|string $chatId, string $token): void
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 20,
         CURLOPT_POSTFIELDS => json_encode([
-            'chat_id' => $chatId,
+            'chat_id' => (string) $chatId,
             'token' => $token,
         ]),
         CURLOPT_HTTPHEADER => [

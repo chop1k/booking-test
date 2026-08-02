@@ -34,7 +34,7 @@ class BookingController extends AbstractController
         $from = Carbon::createFromTimestamp($from);
         $to = Carbon::createFromTimestamp($to);
 
-        $bookings = $this->bookingRepository->findAll($from, $to);
+        $bookings = $this->bookingRepository->findAll(null, $from, $to);
 
         return $this->json($bookings, Response::HTTP_OK);
     }
@@ -46,7 +46,7 @@ class BookingController extends AbstractController
         $from = Carbon::parse($dto->starts_at);
         $to = Carbon::parse($dto->ends_at);
 
-        $bookings = $this->bookingRepository->findAll($from, $to);
+        $bookings = $this->bookingRepository->findAll($dto->room_id, $from, $to);
 
         if (0 !== count($bookings)) {
             return $this->json([
@@ -59,7 +59,7 @@ class BookingController extends AbstractController
 
         $booking = new Booking();
 
-        $booking->setUserId((int) $user->getUserIdentifier());
+        $booking->setUserId($user->getUserIdentifier());
         $booking->setRoomId($dto->room_id);
         $booking->setStartsAt($from);
         $booking->setEndsAt($to);

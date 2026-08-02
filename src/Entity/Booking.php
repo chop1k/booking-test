@@ -17,8 +17,8 @@ class Booking implements JsonSerializable
 {
     use IdentifiableResourceTrait;
 
-    #[ORM\Column(type: 'integer')]
-    private int $userId;
+    #[ORM\Column(type: 'string')]
+    private string $userId;
 
     #[Assert\NotBlank]
     #[ORM\Column(type: 'integer')]
@@ -35,12 +35,12 @@ class Booking implements JsonSerializable
     #[ORM\Column(type: Types::JSON)]
     private array $attributes = [];
 
-    public function getUserId(): int
+    public function getUserId(): string
     {
         return $this->userId;
     }
 
-    public function setUserId(int $userId): self
+    public function setUserId(string $userId): self
     {
         $this->userId = $userId;
 
