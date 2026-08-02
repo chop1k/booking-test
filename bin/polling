@@ -7,10 +7,11 @@ error_reporting(E_ALL);
 
 const STICKER_ID = 'CAACAgIAAxkBAAMNamsl3Q_tjFcjet4-UyfkEdMFOd0AAtyGAALVUjhLcqtu261XqJw9BA';
 
-$telegramToken = getenv('TELEGRAM_TOKEN');
-$accessToken   = getenv('ACCESS_TOKEN');
-$registerUrl   = getenv('REGISTER_URL');
-$proxy         = getenv('HTTPS_PROXY');
+$telegramToken = getenv('POLLING_TELEGRAM_TOKEN');
+$accessToken   = getenv('POLLING_ACCESS_TOKEN');
+$registerUrl   = getenv('POLLING_REGISTER_URL');
+$proxy         = getenv('POLLING_HTTPS_PROXY');
+$appUrl        = getenv('POLLING_APP_URL');
 
 if (!$telegramToken) {
     fwrite(STDERR, "TELEGRAM_TOKEN is required\n");
@@ -120,7 +121,9 @@ while (true) {
                             [
                                 [
                                     'text' => 'Открыть',
-                                    'url' => 'https://example.com'
+                                    'web_app' => [
+                                        'url' => $appUrl
+                                    ]
                                 ]
                             ]
                         ]
