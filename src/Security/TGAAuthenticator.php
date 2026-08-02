@@ -20,7 +20,7 @@ use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPasspor
 class TGAAuthenticator extends AbstractAuthenticator
 {
     public function __construct(
-        #[Autowire(env: 'TELEGRAM_BOT_TOKEN')]
+        #[Autowire(env: 'POLLING_TELEGRAM_TOKEN')]
         private readonly string $botToken,
 
         private readonly UserRepository $userRepository,
