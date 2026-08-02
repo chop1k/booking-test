@@ -31,8 +31,7 @@ RUN composer install \
     && mkdir -p var/cache/prod \
     && mkdir -p var/log
 
-RUN php bin/console cache:warmup \
-    && php bin/console importmap:install \
+RUN php bin/console importmap:install \
     && php bin/console asset-map:compile
 
-CMD ["sh", "-c", "php bin/console doctrine:migrations:migrate --allow-no-migration --no-interaction && php-fpm -F"]
+CMD ["sh", "-c", "php bin/console cache:warmup && php bin/console doctrine:migrations:migrate --allow-no-migration --no-interaction && php-fpm -F"]

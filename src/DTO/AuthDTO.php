@@ -8,7 +8,7 @@ final readonly class AuthDTO
 {
     public function __construct(
         public string $token,
-        public int $chat_id,
+        public string $chat_id,
     ) {
     }
 }

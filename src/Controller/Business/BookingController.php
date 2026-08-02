@@ -27,7 +27,7 @@ class BookingController extends AbstractController
     ) {
     }
 
-    //    #[IsGranted("ROLE_USER")]
+    #[IsGranted("ROLE_USER")]
     #[Route('', name: 'business_get_bookings', methods: ['GET'])]
     public function bookings(#[MapQueryParameter] ?int $from, #[MapQueryParameter] ?int $to): JsonResponse
     {
@@ -47,8 +47,6 @@ class BookingController extends AbstractController
         $to = Carbon::parse($dto->ends_at);
 
         $bookings = $this->bookingRepository->findAll($from, $to);
-
-        dump($bookings);
 
         if (0 !== count($bookings)) {
             return $this->json([

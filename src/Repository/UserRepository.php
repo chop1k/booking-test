@@ -19,12 +19,12 @@ class UserRepository extends ServiceEntityRepository
         parent::__construct($registry, User::class);
     }
 
-    public function findById(int $id): User
+    public function findById(string $id): User
     {
         $user = $this->find($id);
 
         if (null === $user) {
-            throw EntityNotFoundException::fromClassNameAndIdentifier(User::class, [(string) $id]);
+            throw EntityNotFoundException::fromClassNameAndIdentifier(User::class, [$id]);
         }
 
         return $user;
