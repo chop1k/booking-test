@@ -4,23 +4,18 @@ declare(strict_types=1);
 
 namespace App\Repository;
 
-use App\Entity\Room;
-use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
-use Doctrine\Persistence\ManagerRegistry;
-use Symfony\Component\Asset\Package;
 use Symfony\Component\Asset\Packages;
 
-/**
- * @extends ServiceEntityRepository<Room>
- */
-class RoomRepository extends ServiceEntityRepository
+final readonly class RoomRepository
 {
-
     public function __construct(
-        ManagerRegistry $registry,
-        private readonly Packages $package
+        private Packages $package,
     ) {
-        parent::__construct($registry, Room::class);
+    }
+
+    public function find(int $id): ?array
+    {
+        return $this->findAll()[$id];
     }
 
     public function findAll(): array
@@ -32,7 +27,6 @@ class RoomRepository extends ServiceEntityRepository
                 'description' => '',
                 'attachments' => [
                     $this->package->getUrl('images/rooms/coworking.jpg'),
-//                    '/images/rooms/coworking.jpg',
                 ],
                 'attributes' => [
                     [
@@ -56,7 +50,6 @@ class RoomRepository extends ServiceEntityRepository
                 'description' => 'Большая комната в ',
                 'attachments' => [
                     $this->package->getUrl('images/rooms/big.jpg'),
-//                    '/assets/images/rooms/big.jpg',
                 ],
                 'attributes' => [
                     [
@@ -84,7 +77,6 @@ class RoomRepository extends ServiceEntityRepository
                 'description' => 'Малая комната в ',
                 'attachments' => [
                     $this->package->getUrl('images/rooms/small.jpg'),
-//                    '/assets/images/rooms/small.jpg',
                 ],
                 'attributes' => [
                     [

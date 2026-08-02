@@ -9,21 +9,26 @@ use Carbon\Carbon;
 use DateTimeInterface;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use JsonSerializable;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: BookingRepository::class)]
-class Booking
+class Booking implements JsonSerializable
 {
     use IdentifiableResourceTrait;
 
     #[ORM\Column(type: 'integer')]
     private int $userId;
 
+    #[Assert\NotBlank]
     #[ORM\Column(type: 'integer')]
     private int $roomId;
 
+    #[Assert\NotBlank]
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private DateTimeInterface $startsAt;
 
+    #[Assert\NotBlank]
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private DateTimeInterface $endsAt;
 
@@ -103,5 +108,18 @@ class Booking
         $this->attributes = $attributes;
 
         return $this;
+    }
+
+    public function jsonSerialize(): mixed
+    {
+        return [
+            'id' => $this->id,
+            'status' => $this->getStatus(),
+            'user_id' => $this->userId,
+            'room_id' => $this->roomId,
+            'starts_at' => $this->startsAt,
+            'ends_at' => $this->endsAt,
+            'attributes' => $this->attributes,
+        ];
     }
 }

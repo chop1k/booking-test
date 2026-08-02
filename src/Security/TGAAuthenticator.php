@@ -65,11 +65,13 @@ class TGAAuthenticator extends AbstractAuthenticator
             throw new AuthenticationException('Данные устарели');
         }
 
+        $user = json_decode($data['user'], true, flags: JSON_THROW_ON_ERROR);
+
         $passport = new SelfValidatingPassport(
-            new UserBadge($data['id'], $this->user(...))
+            new UserBadge((string) $user['id'], $this->user(...))
         );
 
-        $passport->setAttribute('test', 'a');
+        $passport->setAttribute('user_id', $user['id']);
 
         return $passport;
     }

@@ -4,112 +4,72 @@ declare(strict_types=1);
 
 namespace App\Controller\Business;
 
+use App\DTO\BookRoomDTO;
+use App\Entity\Booking;
+use App\Repository\BookingRepository;
+use Carbon\Carbon;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\MapQueryParameter;
+use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[Route('/business/bookings', name: 'business_booking_', format: 'json')]
 class BookingController extends AbstractController
 {
-    #[Route('', name: 'business_get_bookings', methods: ['GET'])]
-    public function bookings(Request $request): JsonResponse
-    {
-        $testBookings = [
-            [
-                'id' => 1,
-                'user_id' => 101,
-                'room_id' => 3,
-                'status' => 'pending',
-                'starts_at' => '2026-08-01T09:00:00+00:00',
-                'ends_at' => '2026-08-01T11:00:00+00:00',
-                'attributes' => [
-                    [
-                        'type' => 'seats',
-                        'count' => 4,
-                    ],
-                    [
-                        'type' => 'displays',
-                        'count' => 2,
-                    ],
-                ],
-            ],
-            [
-                'id' => 2,
-                'user_id' => 102,
-                'room_id' => 5,
-                'status' => 'in_use',
-                'starts_at' => '2026-08-01T10:00:00+00:00',
-                'ends_at' => '2026-08-01T12:00:00+00:00',
-                'attributes' => [
-                    [
-                        'type' => 'seats',
-                        'count' => 8,
-                    ],
-                    [
-                        'type' => 'boards',
-                        'count' => 1,
-                    ],
-                    [
-                        'type' => 'air-conditioners',
-                        'count' => 2,
-                    ],
-                ],
-            ],
-            [
-                'id' => 3,
-                'user_id' => 103,
-                'room_id' => 1,
-                'status' => 'finished',
-                'starts_at' => '2026-07-29T14:00:00+00:00',
-                'ends_at' => '2026-07-29T16:00:00+00:00',
-                'attributes' => [
-                    [
-                        'type' => 'seats',
-                        'count' => 2,
-                    ],
-                    [
-                        'type' => 'tables',
-                        'count' => 1,
-                    ],
-                    [
-                        'type' => 'displays',
-                        'count' => 1,
-                    ],
-                ],
-            ],
-        ];
-
-        return $this->json($testBookings, Response::HTTP_OK);
+    public function __construct(
+        private readonly EntityManagerInterface $entityManager,
+        private readonly BookingRepository $bookingRepository,
+    ) {
     }
 
-    #[Route('/bookings', name: 'business_book_room', methods: ['POST'])]
-    public function create(Request $request): JsonResponse
+    //    #[IsGranted("ROLE_USER")]
+    #[Route('', name: 'business_get_bookings', methods: ['GET'])]
+    public function bookings(#[MapQueryParameter] ?int $from, #[MapQueryParameter] ?int $to): JsonResponse
     {
-        $testCreatedBooking = [
-            'id' => 4,
-            'user_id' => 101,
-            'room_id' => 2,
-            'status' => 'pending',
-            'starts_at' => '2026-08-02T15:00:00+00:00',
-            'ends_at' => '2026-08-02T17:00:00+00:00',
-            'attributes' => [
-                [
-                    'type' => 'seats',
-                    'count' => 6,
-                ],
-                [
-                    'type' => 'displays',
-                    'count' => 1,
-                ],
-                [
-                    'type' => 'office-attributes',
-                    'count' => 1,
-                ],
-            ],
-        ];
+        $from = Carbon::createFromTimestamp($from);
+        $to = Carbon::createFromTimestamp($to);
 
-        return $this->json($testCreatedBooking, Response::HTTP_OK);
+        $bookings = $this->bookingRepository->findAll($from, $to);
+
+        return $this->json($bookings, Response::HTTP_OK);
+    }
+
+    #[IsGranted('ROLE_USER')]
+    #[Route('', name: 'business_book_room', methods: ['POST'])]
+    public function create(#[MapRequestPayload] BookRoomDTO $dto, UserInterface $user): JsonResponse
+    {
+        $from = Carbon::parse($dto->starts_at);
+        $to = Carbon::parse($dto->ends_at);
+
+        $bookings = $this->bookingRepository->findAll($from, $to);
+
+        dump($bookings);
+
+        if (0 !== count($bookings)) {
+            return $this->json([
+                'type' => 'conflict_error',
+                'status' => Response::HTTP_CONFLICT,
+                'title' => 'The booking`s starts_at or ends_at conflicts with another booking`s starts_at or ends_at',
+                'resources' => $bookings,
+            ], Response::HTTP_CONFLICT);
+        }
+
+        $booking = new Booking();
+
+        $booking->setUserId((int) $user->getUserIdentifier());
+        $booking->setRoomId($dto->room_id);
+        $booking->setStartsAt($from);
+        $booking->setEndsAt($to);
+        $booking->setAttributes($dto->attributes ?? []);
+
+        $this->entityManager->persist($booking);
+        $this->entityManager->flush();
+
+        return $this->json($dto, Response::HTTP_CREATED);
     }
 }
