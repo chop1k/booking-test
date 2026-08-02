@@ -179,6 +179,21 @@ export default class extends Controller {
         }, SCROLL_SETTLE_MS);
     }
 
+    selectHourItem(event) {
+        const hour = Number(event.currentTarget.dataset.value);
+        this.hourWheelTarget.scrollTo({ top: hour * ITEM_HEIGHT, behavior: 'smooth' });
+        this.selected.setHours(hour);
+        this.highlightWheelItem(this.hourWheelTarget, hour);
+    }
+
+    selectMinuteItem(event) {
+        const minute = Number(event.currentTarget.dataset.value);
+        const index = minute / MINUTE_STEP;
+        this.minuteWheelTarget.scrollTo({ top: index * ITEM_HEIGHT, behavior: 'smooth' });
+        this.selected.setMinutes(minute);
+        this.highlightWheelItem(this.minuteWheelTarget, index);
+    }
+
     highlightWheelItem(wheel, index) {
         wheel.querySelectorAll('.time-wheel__item').forEach((item, itemIndex) => {
             item.classList.toggle('is-selected', itemIndex === index);

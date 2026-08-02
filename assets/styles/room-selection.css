@@ -247,6 +247,7 @@
     font-size: 18px;
     font-variant-numeric: tabular-nums;
     color: var(--tg-hint-color);
+    cursor: pointer;
 }
 .time-wheel__item.is-selected {
     color: var(--tg-text-color);

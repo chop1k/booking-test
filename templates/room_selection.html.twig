@@ -151,7 +151,7 @@
                     <div class="time-wheel__col" data-datetime-picker-target="hourWheel">
                         <div class="time-wheel__pad"></div>
                         {% for hour in 0..23 %}
-                            <div class="time-wheel__item" data-value="{{ hour }}">{{ '%02d'|format(hour) }}</div>
+                            <div class="time-wheel__item" data-value="{{ hour }}" data-action="click->datetime-picker#selectHourItem">{{ '%02d'|format(hour) }}</div>
                         {% endfor %}
                         <div class="time-wheel__pad"></div>
                     </div>
@@ -159,7 +159,7 @@
                     <div class="time-wheel__col" data-datetime-picker-target="minuteWheel">
                         <div class="time-wheel__pad"></div>
                         {% for minute in [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] %}
-                            <div class="time-wheel__item" data-value="{{ minute }}">{{ '%02d'|format(minute) }}</div>
+                            <div class="time-wheel__item" data-value="{{ minute }}" data-action="click->datetime-picker#selectMinuteItem">{{ '%02d'|format(minute) }}</div>
                         {% endfor %}
                         <div class="time-wheel__pad"></div>
                     </div>
