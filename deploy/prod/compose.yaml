@@ -14,6 +14,18 @@ services:
     networks:
       - app_network
 
+  valkey:
+    image: valkey/valkey:9.1.1-alpine
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - app_network
+
   postgres:
     image: postgres:18-alpine
     security_opt:
@@ -37,7 +49,7 @@ services:
       - app_network
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -95,3 +107,4 @@ volumes:
   app-data:
   static-files:
   postgres-data:
+  valkey-data:

@@ -12,7 +12,8 @@ RUN install-php-extensions \
         opcache \
         apcu \
         intl \
-        pdo_pgsql
+        pdo_pgsql \
+        redis
 
 WORKDIR /app
 

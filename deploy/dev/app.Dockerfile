@@ -17,6 +17,7 @@ RUN set -eux; \
         intl \
         curl \
         pdo_pgsql \
+        redis \
     ;
 
 RUN { \
