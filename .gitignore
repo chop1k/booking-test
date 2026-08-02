@@ -34,3 +34,6 @@ assets/vendor
 *.Dockerfile
 .dockerignore
 compose.yaml
+nginx.conf
+fullchain.pem
+privkey.pem
