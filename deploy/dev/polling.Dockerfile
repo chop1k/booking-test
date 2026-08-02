@@ -11,9 +11,6 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
-# todo: заменить на маунт
-COPY bin/polling .
-
 RUN mv "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini"
 
 CMD ["php", "/app/polling"]

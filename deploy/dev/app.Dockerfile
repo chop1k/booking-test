@@ -16,6 +16,7 @@ RUN set -eux; \
         apcu \
         intl \
         curl \
+        pdo_pgsql \
     ;
 
 RUN { \
