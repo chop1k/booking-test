@@ -6,7 +6,6 @@ const STATE_COLLAPSED = 'collapsed';
 const STATE_EXPANDED = 'expanded';
 const SWIPE_THRESHOLD_PX = 60;
 
-// "seats" сюда не входит — это отдельное поле "ожидаемое количество людей".
 const EQUIPMENT_LABELS = {
     displays: 'Проектор / экран',
     boards: 'Доска для рисования',
@@ -218,8 +217,6 @@ export default class extends Controller {
         this.hideAlert();
         this.setSubmitting(true);
 
-        // ВНИМАНИЕ: BookingForm в спеке не содержит поля под "ожидаемое количество людей" —
-        // оно используется только для локальной проверки и не отправляется на бэкенд.
         const payload = {
             room_id: Number(this.room.id),
             starts_at: this.startsAt.toISOString(),
@@ -242,6 +239,11 @@ export default class extends Controller {
 
             if (response.status === 400) {
                 this.handleValidationError(await response.json().catch(() => null));
+                return;
+            }
+
+            if (response.status === 409) {
+                this.handleConflictError();
                 return;
             }
 
@@ -293,6 +295,12 @@ export default class extends Controller {
             : (body && (body.detail || body.title)) || 'Проверьте правильность заполнения формы.';
 
         this.showAlert(message);
+    }
+
+    handleConflictError() {
+        this.startFieldTarget.classList.add('is-invalid');
+        this.endFieldTarget.classList.add('is-invalid');
+        this.showAlert('Выбранное время конфликтует с другим бронированием. Выберите другой интервал.');
     }
 
     setSubmitting(isSubmitting) {

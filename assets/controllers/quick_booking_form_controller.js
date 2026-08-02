@@ -111,6 +111,11 @@ export default class extends Controller {
                 return;
             }
 
+            if (response.status === 409) {
+                this.showAlert('Выбранное время конфликтует с другим бронированием. Выберите другой интервал.');
+                return;
+            }
+
             this.showAlert('Произошла серверная ошибка. Попробуйте ещё раз позже.');
         } catch (error) {
             console.error(error);
