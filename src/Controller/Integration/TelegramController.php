@@ -26,9 +26,9 @@ class TelegramController extends AbstractController
     public function __construct(
         private readonly HttpClientInterface $httpClient,
         private readonly LoggerInterface $logger,
-        #[Autowire(env: 'TELEGRAM_TOKEN')]
+        #[Autowire(env: 'POLLING_TELEGRAM_TOKEN')]
         private readonly string $telegramBotToken,
-        #[Autowire(env: 'ACCESS_TOKEN')]
+        #[Autowire(env: 'POLLING_ACCESS_TOKEN')]
         private readonly string $accessToken,
         private readonly UserRepository $userRepository,
         private readonly EntityManagerInterface $entityManager,
