@@ -16,7 +16,15 @@ export default class extends Controller {
         this.year = today.getFullYear();
         this.month = today.getMonth();
         this.firstLoad = true;
+
+        this.onBookingsChanged = () => this.render();
+        document.addEventListener('bookings:changed', this.onBookingsChanged);
+
         this.render();
+    }
+
+    disconnect() {
+        document.removeEventListener('bookings:changed', this.onBookingsChanged);
     }
 
     prevMonth() {
@@ -39,7 +47,7 @@ export default class extends Controller {
 
     gridStart() {
         const firstOfMonth = new Date(this.year, this.month, 1);
-        const mondayIndex = (firstOfMonth.getDay() + 6) % 7; // 0 = понедельник
+        const mondayIndex = (firstOfMonth.getDay() + 6) % 7;
         const start = new Date(firstOfMonth);
         start.setDate(start.getDate() - mondayIndex);
         return start;

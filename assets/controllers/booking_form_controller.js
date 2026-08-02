@@ -20,7 +20,7 @@ const EQUIPMENT_ORDER = Object.keys(EQUIPMENT_LABELS);
 export default class extends Controller {
     static targets = [
         'backdrop', 'sheet', 'roomName', 'form', 'alert',
-        'startField', 'startValue', 'startInput', 'endField', 'endValue', 'endInput',
+        'startField', 'startValue', 'endField', 'endValue',
         'peopleInput', 'equipmentList', 'counterTemplate',
         'submit', 'submitText', 'spinner',
     ];
@@ -33,10 +33,14 @@ export default class extends Controller {
 
         this.onRoomChosen = (event) => this.open(event.detail.room);
         document.addEventListener('room-selection:room-chosen', this.onRoomChosen);
+
+        this.onDateTimeSelected = (event) => this.applyDateTime(event.detail);
+        document.addEventListener('datetime-picker:selected', this.onDateTimeSelected);
     }
 
     disconnect() {
         document.removeEventListener('room-selection:room-chosen', this.onRoomChosen);
+        document.removeEventListener('datetime-picker:selected', this.onDateTimeSelected);
     }
 
     open(room) {
@@ -61,8 +65,6 @@ export default class extends Controller {
     reset() {
         this.startsAt = null;
         this.endsAt = null;
-        this.startInputTarget.value = '';
-        this.endInputTarget.value = '';
         this.startValueTarget.textContent = 'Выбрать дату и время';
         this.endValueTarget.textContent = 'Выбрать дату и время';
         this.startFieldTarget.classList.remove('is-valid', 'is-invalid');
@@ -71,6 +73,32 @@ export default class extends Controller {
         this.equipmentListTarget.innerHTML = '';
         this.hideAlert();
         this.setSubmitting(false);
+    }
+
+    pickStart() {
+        document.dispatchEvent(new CustomEvent('datetime-picker:request', {
+            detail: { which: 'start', current: this.startsAt },
+        }));
+    }
+
+    pickEnd() {
+        document.dispatchEvent(new CustomEvent('datetime-picker:request', {
+            detail: { which: 'end', current: this.endsAt, min: this.startsAt },
+        }));
+    }
+
+    applyDateTime({ which, value }) {
+        const date = new Date(value);
+
+        if (which === 'start') {
+            this.startsAt = date;
+            this.startValueTarget.textContent = this.formatDateTime(date);
+            this.startFieldTarget.classList.remove('is-invalid');
+        } else if (which === 'end') {
+            this.endsAt = date;
+            this.endValueTarget.textContent = this.formatDateTime(date);
+            this.endFieldTarget.classList.remove('is-invalid');
+        }
     }
 
     setState(state) {
@@ -114,20 +142,6 @@ export default class extends Controller {
 
         this.dragStartY = null;
         this.dragCurrentY = null;
-    }
-
-    onStartChanged(event) {
-        const value = event.target.value;
-        this.startsAt = value ? new Date(value) : null;
-        this.startValueTarget.textContent = this.startsAt ? this.formatDateTime(this.startsAt) : 'Выбрать дату и время';
-        this.startFieldTarget.classList.remove('is-invalid');
-    }
-
-    onEndChanged(event) {
-        const value = event.target.value;
-        this.endsAt = value ? new Date(value) : null;
-        this.endValueTarget.textContent = this.endsAt ? this.formatDateTime(this.endsAt) : 'Выбрать дату и время';
-        this.endFieldTarget.classList.remove('is-invalid');
     }
 
     formatDateTime(date) {
@@ -221,6 +235,7 @@ export default class extends Controller {
             });
 
             if (response.ok) {
+                document.dispatchEvent(new CustomEvent('bookings:changed'));
                 this.close();
                 return;
             }

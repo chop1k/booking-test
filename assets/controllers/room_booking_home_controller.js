@@ -8,6 +8,7 @@ export default class extends Controller {
     connect() {
         this.roomsReady = false;
         this.calendarReady = false;
+        this.quickBookingReady = false;
 
         this.onCalendarReady = () => {
             this.calendarReady = true;
@@ -15,11 +16,18 @@ export default class extends Controller {
         };
         document.addEventListener('calendar:ready', this.onCalendarReady);
 
+        this.onQuickBookingReady = () => {
+            this.quickBookingReady = true;
+            this.maybeAnnounceReady();
+        };
+        document.addEventListener('quick-booking:ready', this.onQuickBookingReady);
+
         this.loadRooms();
     }
 
     disconnect() {
         document.removeEventListener('calendar:ready', this.onCalendarReady);
+        document.removeEventListener('quick-booking:ready', this.onQuickBookingReady);
     }
 
     async loadRooms() {
@@ -65,7 +73,7 @@ export default class extends Controller {
     }
 
     maybeAnnounceReady() {
-        if (this.roomsReady && this.calendarReady) {
+        if (this.roomsReady && this.calendarReady && this.quickBookingReady) {
             document.dispatchEvent(new CustomEvent('app:content-ready'));
         }
     }

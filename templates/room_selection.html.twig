@@ -41,38 +41,6 @@
             </button>
         </li>
     </template>
-
-    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
-        <defs>
-            <symbol id="icon-seats" viewBox="0 0 24 24">
-                <path d="M6 19v-3a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3M4 19h16M6 14V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v6" stroke-linecap="round" stroke-linejoin="round"/>
-            </symbol>
-            <symbol id="icon-displays" viewBox="0 0 24 24">
-                <rect x="3" y="5" width="18" height="12" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M8 21h8M12 17v4" stroke-linecap="round" stroke-linejoin="round"/>
-            </symbol>
-            <symbol id="icon-boards" viewBox="0 0 24 24">
-                <rect x="3" y="4" width="18" height="13" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M8 21h8M7 9l4 3 3-4 3 3" stroke-linecap="round" stroke-linejoin="round"/>
-            </symbol>
-            <symbol id="icon-air-conditioners" viewBox="0 0 24 24">
-                <rect x="3" y="5" width="18" height="6" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M7 15v4M12 15v5M17 15v4" stroke-linecap="round" stroke-linejoin="round"/>
-            </symbol>
-            <symbol id="icon-office-attributes" viewBox="0 0 24 24">
-                <path d="M7 3h10l1 4H6l1-4Z" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M6 7h12v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7Z" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M9 12h6M9 16h6" stroke-linecap="round" stroke-linejoin="round"/>
-            </symbol>
-            <symbol id="icon-tables" viewBox="0 0 24 24">
-                <path d="M3 9h18M6 9v11M18 9v11" stroke-linecap="round" stroke-linejoin="round"/>
-            </symbol>
-            <symbol id="icon-power-outlets" viewBox="0 0 24 24">
-                <rect x="6" y="4" width="12" height="16" rx="3" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M10 10v2M14 10v2" stroke-linecap="round" stroke-linejoin="round"/>
-            </symbol>
-        </defs>
-    </svg>
 {% endblock %}
 
 {% block overlays %}
@@ -91,29 +59,25 @@
             <form class="booking-form" data-booking-form-target="form" data-action="submit->booking-form#submit">
                 <div class="booking-form__alert" data-booking-form-target="alert" hidden></div>
 
-                <div class="booking-form__field booking-form__field--picker" data-booking-form-target="startField">
+                <button
+                    type="button"
+                    class="booking-form__field booking-form__field--picker"
+                    data-booking-form-target="startField"
+                    data-action="booking-form#pickStart"
+                >
                     <span class="booking-form__label">Начало бронирования</span>
                     <span class="booking-form__value" data-booking-form-target="startValue">Выбрать дату и время</span>
-                    <input
-                        type="datetime-local"
-                        class="booking-form__field-input"
-                        data-booking-form-target="startInput"
-                        data-action="change->booking-form#onStartChanged"
-                        aria-label="Начало бронирования"
-                    >
-                </div>
+                </button>
 
-                <div class="booking-form__field booking-form__field--picker" data-booking-form-target="endField">
+                <button
+                    type="button"
+                    class="booking-form__field booking-form__field--picker"
+                    data-booking-form-target="endField"
+                    data-action="booking-form#pickEnd"
+                >
                     <span class="booking-form__label">Окончание бронирования</span>
                     <span class="booking-form__value" data-booking-form-target="endValue">Выбрать дату и время</span>
-                    <input
-                        type="datetime-local"
-                        class="booking-form__field-input"
-                        data-booking-form-target="endInput"
-                        data-action="change->booking-form#onEndChanged"
-                        aria-label="Окончание бронирования"
-                    >
-                </div>
+                </button>
 
                 <label class="booking-form__field">
                     <span class="booking-form__label">Ожидаемое количество людей</span>
@@ -146,6 +110,63 @@
                     <span class="booking-form__spinner" data-booking-form-target="spinner" hidden></span>
                 </button>
             </form>
+        </div>
+    </div>
+    </div>
+
+    <div data-controller="datetime-picker">
+    <div class="sheet-backdrop" data-datetime-picker-target="backdrop" data-action="click->datetime-picker#close" hidden></div>
+    <div class="sheet" data-datetime-picker-target="sheet" hidden>
+        <div
+            class="sheet__handle"
+            data-action="touchstart->datetime-picker#touchStart touchmove->datetime-picker#touchMove touchend->datetime-picker#touchEnd"
+        ></div>
+        <header class="sheet__header">
+            <h4 class="sheet__title">Дата и время</h4>
+            <button type="button" class="sheet__close" data-action="datetime-picker#close" aria-label="Закрыть">✕</button>
+        </header>
+        <div class="sheet__body">
+            <div class="calendar">
+                <div class="calendar__switcher">
+                    <button type="button" class="calendar__nav" data-action="datetime-picker#prevMonth" aria-label="Предыдущий месяц">‹</button>
+                    <span class="calendar__month" data-datetime-picker-target="monthLabel"></span>
+                    <button type="button" class="calendar__nav" data-action="datetime-picker#nextMonth" aria-label="Следующий месяц">›</button>
+                </div>
+                <table class="calendar__grid">
+                    <thead>
+                        <tr>
+                            {% for day in ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] %}
+                                <th class="{{ loop.index0 >= 5 ? 'is-weekend' : '' }}">{{ day }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody data-datetime-picker-target="grid"></tbody>
+                </table>
+            </div>
+
+            <div class="time-wheel-block">
+                <span class="booking-form__label">Время</span>
+                <div class="time-wheel">
+                    <div class="time-wheel__highlight" aria-hidden="true"></div>
+                    <div class="time-wheel__col" data-datetime-picker-target="hourWheel">
+                        <div class="time-wheel__pad"></div>
+                        {% for hour in 0..23 %}
+                            <div class="time-wheel__item" data-value="{{ hour }}">{{ '%02d'|format(hour) }}</div>
+                        {% endfor %}
+                        <div class="time-wheel__pad"></div>
+                    </div>
+                    <span class="time-wheel__sep">:</span>
+                    <div class="time-wheel__col" data-datetime-picker-target="minuteWheel">
+                        <div class="time-wheel__pad"></div>
+                        {% for minute in [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] %}
+                            <div class="time-wheel__item" data-value="{{ minute }}">{{ '%02d'|format(minute) }}</div>
+                        {% endfor %}
+                        <div class="time-wheel__pad"></div>
+                    </div>
+                </div>
+            </div>
+
+            <button type="button" class="booking-form__submit" data-action="datetime-picker#confirm">Готово</button>
         </div>
     </div>
     </div>

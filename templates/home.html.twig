@@ -25,6 +25,35 @@
     </section>
 
     <section
+        class="quick-booking"
+        data-controller="quick-booking"
+        data-quick-booking-rooms-url-value="{{ app_urls.business_rooms }}"
+    >
+        <button type="button" class="quick-booking__header" data-action="quick-booking#toggle" aria-expanded="true">
+            <span class="quick-booking__title">Быстрое бронирование</span>
+            <svg class="quick-booking__chevron" data-quick-booking-target="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+
+        <ul class="quick-booking__list" data-quick-booking-target="list">
+            <li class="quick-booking__empty" data-quick-booking-target="empty">Загрузка комнат…</li>
+        </ul>
+
+        <template data-quick-booking-target="itemTemplate">
+            <li class="quick-booking__item">
+                <button type="button" class="quick-booking__room" data-quick-booking-target="itemButton" data-action="quick-booking#openRoom">
+                    <span class="quick-booking__room-name" data-quick-booking-target="itemName"></span>
+                    <span class="quick-booking__room-seats" data-quick-booking-target="itemSeats">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#icon-seats"></use></svg>
+                        <span data-quick-booking-target="itemSeatsValue"></span>
+                    </span>
+                </button>
+            </li>
+        </template>
+    </section>
+
+    <section
         class="schedule"
         data-controller="calendar"
         data-calendar-bookings-url-value="{{ app_urls.business_bookings }}"
@@ -64,6 +93,57 @@
             <button type="button" class="sheet__close" data-action="day-schedule#close" aria-label="Закрыть">✕</button>
         </header>
         <div class="sheet__body schedule-list" data-day-schedule-target="list"></div>
+    </div>
+    </div>
+
+    <div data-controller="quick-booking-form" data-quick-booking-form-book-url-value="{{ app_urls.business_bookings }}">
+    <div class="sheet-backdrop" data-quick-booking-form-target="backdrop" data-action="click->quick-booking-form#close" hidden></div>
+    <div class="sheet" data-quick-booking-form-target="sheet" hidden>
+        <div
+            class="sheet__handle"
+            data-action="touchstart->quick-booking-form#touchStart touchmove->quick-booking-form#touchMove touchend->quick-booking-form#touchEnd"
+        ></div>
+        <header class="sheet__header">
+            <h4 class="sheet__title" data-quick-booking-form-target="roomName"></h4>
+            <button type="button" class="sheet__close" data-action="quick-booking-form#close" aria-label="Закрыть">✕</button>
+        </header>
+        <div class="sheet__body">
+            <div class="quick-booking-form__body">
+                <div class="booking-form__alert" data-quick-booking-form-target="alert" hidden></div>
+
+                <div class="quick-booking-form__group">
+                    <span class="booking-form__label">Длительность</span>
+                    <div class="quick-booking-form__options" data-quick-booking-form-target="durationOptions">
+                        <button type="button" class="quick-booking-form__option" data-value="15" data-action="quick-booking-form#selectDuration">15 минут</button>
+                        <button type="button" class="quick-booking-form__option" data-value="30" data-action="quick-booking-form#selectDuration">30 минут</button>
+                        <button type="button" class="quick-booking-form__option" data-value="45" data-action="quick-booking-form#selectDuration">45 минут</button>
+                        <button type="button" class="quick-booking-form__option" data-value="60" data-action="quick-booking-form#selectDuration">60 минут</button>
+                    </div>
+                </div>
+
+                <div class="quick-booking-form__group">
+                    <span class="booking-form__label">Начало</span>
+                    <div class="quick-booking-form__options" data-quick-booking-form-target="startOptions">
+                        <button type="button" class="quick-booking-form__option" data-value="0" data-action="quick-booking-form#selectStart">Сейчас</button>
+                        <button type="button" class="quick-booking-form__option" data-value="15" data-action="quick-booking-form#selectStart">Через 15 минут</button>
+                        <button type="button" class="quick-booking-form__option" data-value="30" data-action="quick-booking-form#selectStart">Через 30 минут</button>
+                        <button type="button" class="quick-booking-form__option" data-value="45" data-action="quick-booking-form#selectStart">Через 45 минут</button>
+                        <button type="button" class="quick-booking-form__option" data-value="60" data-action="quick-booking-form#selectStart">Через 60 минут</button>
+                    </div>
+                </div>
+
+                <button
+                    type="button"
+                    class="booking-form__submit quick-booking-form__submit"
+                    data-quick-booking-form-target="submit"
+                    data-action="quick-booking-form#submit"
+                    disabled
+                >
+                    <span data-quick-booking-form-target="submitText">Забронировать</span>
+                    <span class="booking-form__spinner" data-quick-booking-form-target="spinner" hidden></span>
+                </button>
+            </div>
+        </div>
     </div>
     </div>
 {% endblock %}

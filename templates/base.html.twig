@@ -13,7 +13,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>{% block title %}Бронирование переговорных{% endblock %}</title>
 
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('icons/icons8-переговорная-material-sharp-16.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('icons/icons8-переговорная-material-sharp-32.png') }}">
+
+    <link rel="apple-touch-icon" sizes="57x57" href="{{ asset('icons/icons8-переговорная-material-sharp-57.png') }}">
+    <link rel="apple-touch-icon" sizes="60x60" href="{{ asset('icons/icons8-переговорная-material-sharp-60.png') }}">
+    <link rel="apple-touch-icon" sizes="72x72" href="{{ asset('icons/icons8-переговорная-material-sharp-72.png') }}">
+    <link rel="apple-touch-icon" sizes="76x76" href="{{ asset('icons/icons8-переговорная-material-sharp-76.png') }}">
+
+    <meta name="msapplication-TileImage" content="{{ asset('icons/icons8-переговорная-material-sharp-70.png') }}">
+
+    <link rel="icon" type="image/png" sizes="96x96" href="{{ asset('icons/icons8-переговорная-material-sharp-96.png') }}">
+
+    <script src="{{ asset('telegram-web-app.js') }}"></script>
     <script>
         window.appUrls = {
             userAvatar: "{{ app_urls.user_avatar_template }}",
@@ -31,6 +43,37 @@
     data-controller="telegram{% block body_controllers %}{% endblock %}"
     {% block body_data %}{% endblock %}
 >
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+        <defs>
+            <symbol id="icon-seats" viewBox="0 0 24 24">
+                <path d="M6 19v-3a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3M4 19h16M6 14V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v6" stroke-linecap="round" stroke-linejoin="round"/>
+            </symbol>
+            <symbol id="icon-displays" viewBox="0 0 24 24">
+                <rect x="3" y="5" width="18" height="12" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M8 21h8M12 17v4" stroke-linecap="round" stroke-linejoin="round"/>
+            </symbol>
+            <symbol id="icon-boards" viewBox="0 0 24 24">
+                <rect x="3" y="4" width="18" height="13" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M8 21h8M7 9l4 3 3-4 3 3" stroke-linecap="round" stroke-linejoin="round"/>
+            </symbol>
+            <symbol id="icon-air-conditioners" viewBox="0 0 24 24">
+                <rect x="3" y="5" width="18" height="6" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M7 15v4M12 15v5M17 15v4" stroke-linecap="round" stroke-linejoin="round"/>
+            </symbol>
+            <symbol id="icon-office-attributes" viewBox="0 0 24 24">
+                <path d="M7 3h10l1 4H6l1-4Z" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M6 7h12v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7Z" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M9 12h6M9 16h6" stroke-linecap="round" stroke-linejoin="round"/>
+            </symbol>
+            <symbol id="icon-tables" viewBox="0 0 24 24">
+                <path d="M3 9h18M6 9v11M18 9v11" stroke-linecap="round" stroke-linejoin="round"/>
+            </symbol>
+            <symbol id="icon-power-outlets" viewBox="0 0 24 24">
+                <rect x="6" y="4" width="12" height="16" rx="3" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M10 10v2M14 10v2" stroke-linecap="round" stroke-linejoin="round"/>
+            </symbol>
+        </defs>
+    </svg>
     {% block body %}
         <main class="page">
             {% block content %}{% endblock %}

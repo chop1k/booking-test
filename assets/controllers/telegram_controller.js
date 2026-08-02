@@ -3,14 +3,28 @@ import { Controller } from '@hotwired/stimulus';
 // Turbo подменяет только <body>, поэтому window.Telegram.WebApp не пересоздаётся между
 // переходами — ready() имеет смысл вызвать один раз за сессию.
 let readyCalledOnce = false;
+// Прятать body в ожидании данных имеет смысл только на самом первом запуске: в этот момент
+// содержимое всё равно скрыто под нативным лоадером Telegram. На последующих Turbo-переходах
+// такого лоадера уже нет, и прятать body — значит показывать пустой "мигающий" экран между
+// страницами. Поэтому начиная со второго перехода body показываем сразу.
+let firstNavigationHandled = false;
 
 export default class extends Controller {
     connect() {
         this.tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
         this.applyTheme();
 
+        const isFirstNavigation = !firstNavigationHandled;
+        firstNavigationHandled = true;
+
         this.onContentReady = () => this.markReady();
         document.addEventListener('app:content-ready', this.onContentReady);
+
+        if (!isFirstNavigation) {
+            document.body.classList.add('is-ready');
+            if (this.tg) this.tg.expand();
+            return;
+        }
 
         // Страницы без асинхронной загрузки данных не помечены data-awaits-content-ready —
         // для них готовность засчитывается сразу.
