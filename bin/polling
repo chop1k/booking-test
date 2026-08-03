@@ -5,7 +5,12 @@ declare(strict_types=1);
 
 error_reporting(E_ALL);
 
-const STICKER_ID = 'CAACAgIAAxkBAAMNamsl3Q_tjFcjet4-UyfkEdMFOd0AAtyGAALVUjhLcqtu261XqJw9BA';
+const STICKER_IDS = [
+    'CAACAgIAAxkBAAMNamsl3Q_tjFcjet4-UyfkEdMFOd0AAtyGAALVUjhLcqtu261XqJw9BA',
+    'CAACAgIAAxkBAAFQ39VqcDOYmO2lBQPjWvwQLiQU5LEHpQACwgADzcBIGKQeU8DIiZEuPQQ'
+];
+
+const DEBUG_ENVS = ['dev', 'test', 'stage'];
 
 const LOG_LEVELS = [
     'DEBUG' => 0,
@@ -20,10 +25,13 @@ $registerUrl   = getenv('POLLING_REGISTER_URL');
 $proxy         = getenv('POLLING_HTTPS_PROXY') ?: null;
 $appUrl        = getenv('POLLING_APP_URL');
 $logLevel      = strtoupper((string) (getenv('POLLING_LOG_LEVEL') ?: 'INFO'));
+$env           = strtolower((string) (getenv('POLLING_ENV') ?: ''));
 
 if (!isset(LOG_LEVELS[$logLevel])) {
     $logLevel = 'INFO';
 }
+
+$debugAllowed = in_array($env, DEBUG_ENVS, true);
 
 if (!$telegramToken) {
     fwrite(STDERR, "POLLING_TELEGRAM_TOKEN is required\n");
@@ -109,6 +117,7 @@ function loadDatabase(string $file): array
     if (!file_exists($file)) {
         return [
             '_offset' => 0,
+            '_debug' => false,
             'users' => [],
         ];
     }
@@ -123,6 +132,7 @@ function loadDatabase(string $file): array
         // Пустой файл — считаем это первым запуском, а не повреждением.
         return [
             '_offset' => 0,
+            '_debug' => false,
             'users' => [],
         ];
     }
@@ -143,6 +153,7 @@ function loadDatabase(string $file): array
     }
 
     $json['_offset'] = (int) ($json['_offset'] ?? 0);
+    $json['_debug'] = (bool) ($json['_debug'] ?? false);
     $json['users'] = is_array($json['users'] ?? null) ? $json['users'] : [];
 
     return $json;
@@ -261,11 +272,21 @@ function sendSticker(int|string $chatId): void
     try {
         telegramWithRetry('sendSticker', [
             'chat_id' => $chatId,
-            'sticker' => STICKER_ID,
+            'sticker' => STICKER_IDS[array_rand(STICKER_IDS)],
         ]);
     } catch (Throwable $e) {
         logMessage('ERROR', 'Не удалось отправить стикер: ' . $e->getMessage(), ['chat_id' => $chatId]);
     }
+}
+
+/**
+ * Печатает сырое содержимое апдейта в консоль. Используется только в
+ * отладочном режиме (POLLING_ENV=dev/test/stage + команда /debug), поэтому
+ * вывод не фильтруется по log-level — это отдельный инструмент, а не лог.
+ */
+function debugDump(array $update): void
+{
+    fwrite(STDOUT, '[DEBUG DUMP] ' . json_encode($update, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . PHP_EOL);
 }
 
 // ---------------------------------------------------------------------------
@@ -372,7 +393,8 @@ function processUpdate(
     string $registerUrl,
     ?string $proxy,
     ?string $appUrl,
-    array $messages
+    array $messages,
+    bool $debugAllowed
 ): void {
     if (!isset($update['message']['text'])) {
         logMessage('DEBUG', 'Апдейт без текстового сообщения, пропускаем', ['update_id' => $update['update_id'] ?? null]);
@@ -382,6 +404,34 @@ function processUpdate(
     $message = trim($update['message']['text']);
     $chatId = $update['message']['chat']['id'];
     $userId = $update['message']['from']['id'];
+
+    // -------------------------------------------------------------------
+    // Отладочный режим: доступен только при POLLING_ENV=dev/test/stage.
+    // /debug включает вывод сырых апдейтов в консоль для ВСЕХ последующих
+    // сообщений (глобально, не только от этого пользователя), /debug_off
+    // выключает. Сами эти команды не выводятся, только то, что после них.
+    // -------------------------------------------------------------------
+    if ($debugAllowed) {
+        if ($message === '/debug') {
+            $db['_debug'] = true;
+            saveDatabase($dbFile, $db);
+            logMessage('INFO', 'Debug-режим включён', ['user_id' => $userId]);
+            sendMessage($chatId, 'Дебаг-режим включён: сырые апдейты будут выводиться в консоль. Чтобы выключить — /debug_off');
+            return;
+        }
+
+        if ($message === '/debug_off') {
+            $db['_debug'] = false;
+            saveDatabase($dbFile, $db);
+            logMessage('INFO', 'Debug-режим выключен', ['user_id' => $userId]);
+            sendMessage($chatId, 'Дебаг-режим выключен.');
+            return;
+        }
+
+        if ($db['_debug'] ?? false) {
+            debugDump($update);
+        }
+    }
 
     if (!isset($db['users'][$userId])) {
         $db['users'][$userId] = [
@@ -415,11 +465,11 @@ function processUpdate(
 
             logMessage('INFO', 'Пользователь разлогинился', ['user_id' => $userId]);
 
-            sendMessage($chatId, 'Теперь я тебя не знаю.');
+            sendMessage($chatId, 'Вы вышли из аккаунта. Пришлите /start, чтобы ввести токен заново.');
             return;
         }
 
-        sendMessage($chatId, 'Я вам запрещаю повторно логиниться, давай разлогинься сначала с помощью /logout.');
+        sendMessage($chatId, 'Вы уже зарегистрированы. Если хотите перелогиниться — используйте /logout.');
         return;
     }
 
@@ -427,13 +477,13 @@ function processUpdate(
     // Пользователь ещё не зарегистрирован
     // -------------------------------------------------------------------
     if (str_starts_with($message, '/start')) {
-        sendMessage($chatId, 'Гони токен! Быстро!');
+        sendMessage($chatId, 'Гони токен!');
         sendSticker($chatId);
         return;
     }
 
     if (str_starts_with($message, '/logout')) {
-        sendMessage($chatId, 'Не, так дело не пойдёт. Ты не можешь так просто разлогиниться когда ты даже не был залогинен.');
+        sendMessage($chatId, 'Вы ещё не зарегистрированы, разлогинивать нечего. Пришлите токен.');
         return;
     }
 
@@ -444,7 +494,7 @@ function processUpdate(
 
         if (!$success) {
             logMessage('ERROR', 'Запрос регистрации не удался', ['user_id' => $userId, 'chat_id' => $chatId]);
-            sendMessage($chatId, 'Я сломался. Почини.');
+            sendMessage($chatId, 'Не получилось зарегистрировать вас из-за технической ошибки. Пришлите токен ещё раз чуть позже.');
             return;
         }
 
@@ -510,7 +560,12 @@ if (function_exists('pcntl_async_signals')) {
     logMessage('WARN', 'Расширение pcntl недоступно — graceful shutdown по SIGTERM/SIGINT работать не будет');
 }
 
-logMessage('INFO', 'Бот запускается', ['pid' => getmypid(), 'log_level' => $logLevel]);
+logMessage('INFO', 'Бот запускается', [
+    'pid' => getmypid(),
+    'log_level' => $logLevel,
+    'env' => $env ?: '(не задан)',
+    'debug_command_allowed' => $debugAllowed,
+]);
 
 $db = loadDatabase($dbFile);
 
@@ -549,7 +604,7 @@ while (!$shouldStop) {
         }
 
         try {
-            processUpdate($db, $dbFile, $update, $accessToken, $registerUrl, $proxy, $appUrl, $messages);
+            processUpdate($db, $dbFile, $update, $accessToken, $registerUrl, $proxy, $appUrl, $messages, $debugAllowed);
         } catch (Throwable $e) {
             // Ошибка в обработке одного апдейта не должна ронять весь батч —
             // логируем и идём дальше, офсет всё равно продвинется ниже.
