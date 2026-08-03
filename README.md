@@ -213,7 +213,7 @@ APP_RELEASE=test make -e clean
 
 **Форма бронирования комнаты**
 
-![Форма бронирования комнаты](docs/images/room_booking.jpg)
+![Форма бронирования комнаты](docs/images/room_booking_form.jpg)
 
 **Виджет выбора даты и времени**
 
