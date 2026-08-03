@@ -21,7 +21,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 #[Route('/integration/telegram', name: 'integration_telegram_')]
 class TelegramController extends AbstractController
 {
-    private const TELEGRAM_API_URL = 'https://api.telegram.org/bot';
+    private const string TELEGRAM_API_URL = 'https://api.telegram.org/bot';
 
     public function __construct(
         private readonly HttpClientInterface $httpClient,
@@ -48,6 +48,8 @@ class TelegramController extends AbstractController
 
         try {
             $user = $this->userRepository->findById($dto->chat_id);
+
+            return $this->json($user, Response::HTTP_OK);
         } catch (EntityNotFoundException $e) {
             $user = new User();
 
@@ -55,9 +57,9 @@ class TelegramController extends AbstractController
 
             $this->entityManager->persist($user);
             $this->entityManager->flush();
-        }
 
-        return $this->json($user, Response::HTTP_CREATED);
+            return $this->json($user, Response::HTTP_CREATED);
+        }
     }
 
     #[Route('/user-avatar/{user_id}', name: 'get_avatar', methods: ['GET'])]
@@ -86,6 +88,7 @@ class TelegramController extends AbstractController
 
             return new Response($avatarContent, Response::HTTP_OK, [
                 'Content-Type' => $contentType,
+                'Cache-Control' => 'public, max-age=60'
             ]);
         } catch (Exception $e) {
             $this->logger->error('Error getting Telegram avatar', [
@@ -185,6 +188,7 @@ class TelegramController extends AbstractController
 
         return new Response($content, Response::HTTP_OK, [ // todo: добавить кеш для прода (и только для прода)
             'Content-Type' => 'image/jpeg',
+            'Cache-Control' => 'public, max-age=60'
         ]);
     }
 
