@@ -1,0 +1,173 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Выбор комнаты{% endblock %}
+
+{% block stylesheets %}
+    <link rel="stylesheet" href="{{ asset('styles/room-selection.css') }}">
+{% endblock %}
+
+{% block body_controllers %} room-selection{% endblock %}
+
+{% block body_data %}
+    data-awaits-content-ready="true"
+    data-room-selection-rooms-url-value="{{ app_urls.business_rooms }}"
+{% endblock %}
+
+{% block content %}
+    <header class="page-header">
+        <a class="app-back" href="{{ app_urls.home }}" aria-label="Назад">‹</a>
+        <h2 class="page-header__title">Выбор комнаты</h2>
+    </header>
+
+    <ul class="room-list" data-room-selection-target="list">
+        <li class="room-list__empty" data-room-selection-target="empty">Загрузка комнат…</li>
+    </ul>
+
+    <template data-room-selection-target="cardTemplate">
+        <li class="room-card">
+            <button type="button" class="room-card__link" data-room-selection-target="cardLink" data-action="room-selection#openRoom">
+                <img class="room-card__photo" data-room-selection-target="cardPhoto" alt="">
+                <div class="room-card__body">
+                    <h3 class="room-card__name" data-room-selection-target="cardName"></h3>
+                    <p class="room-card__description" data-room-selection-target="cardDescription"></p>
+                    <div class="room-card__specs">
+                        <span class="room-card__seats" data-room-selection-target="cardSeats">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#icon-seats"></use></svg>
+                            <span data-room-selection-target="cardSeatsValue"></span>
+                        </span>
+                        <div class="room-card__equipment" data-room-selection-target="cardEquipment"></div>
+                    </div>
+                </div>
+            </button>
+        </li>
+    </template>
+{% endblock %}
+
+{% block overlays %}
+    <div data-controller="booking-form" data-booking-form-book-url-value="{{ app_urls.business_bookings }}">
+    <div class="sheet-backdrop" data-booking-form-target="backdrop" data-action="click->booking-form#close" hidden></div>
+    <div class="sheet" data-booking-form-target="sheet" hidden>
+        <div
+            class="sheet__handle"
+            data-action="touchstart->booking-form#touchStart touchmove->booking-form#touchMove touchend->booking-form#touchEnd"
+        ></div>
+        <header class="sheet__header">
+            <h4 class="sheet__title" data-booking-form-target="roomName"></h4>
+            <button type="button" class="sheet__close" data-action="booking-form#close" aria-label="Закрыть">✕</button>
+        </header>
+        <div class="sheet__body">
+            <form class="booking-form" data-booking-form-target="form" data-action="submit->booking-form#submit">
+                <div class="booking-form__alert" data-booking-form-target="alert" hidden></div>
+
+                <button
+                    type="button"
+                    class="booking-form__field booking-form__field--picker"
+                    data-booking-form-target="startField"
+                    data-action="booking-form#pickStart"
+                >
+                    <span class="booking-form__label">Начало бронирования</span>
+                    <span class="booking-form__value" data-booking-form-target="startValue">Выбрать дату и время</span>
+                </button>
+
+                <button
+                    type="button"
+                    class="booking-form__field booking-form__field--picker"
+                    data-booking-form-target="endField"
+                    data-action="booking-form#pickEnd"
+                >
+                    <span class="booking-form__label">Окончание бронирования</span>
+                    <span class="booking-form__value" data-booking-form-target="endValue">Выбрать дату и время</span>
+                </button>
+
+                <label class="booking-form__field">
+                    <span class="booking-form__label">Ожидаемое количество людей</span>
+                    <input
+                        type="number"
+                        min="1"
+                        inputmode="numeric"
+                        class="booking-form__input"
+                        name="expected_people"
+                        data-booking-form-target="peopleInput"
+                    >
+                </label>
+
+                <div class="booking-form__equipment" data-booking-form-target="equipmentList"></div>
+
+                <template data-booking-form-target="counterTemplate">
+                    <div class="counter-field">
+                        <span class="counter-field__icon" data-booking-form-target="counterIcon"></span>
+                        <span class="counter-field__label" data-booking-form-target="counterLabel"></span>
+                        <div class="counter-field__control">
+                            <button type="button" class="counter-field__btn" data-action="booking-form#decrement" aria-label="Меньше">−</button>
+                            <span class="counter-field__value" data-booking-form-target="counterValue">0</span>
+                            <button type="button" class="counter-field__btn" data-action="booking-form#increment" aria-label="Больше">+</button>
+                        </div>
+                    </div>
+                </template>
+
+                <button type="submit" class="booking-form__submit" data-booking-form-target="submit">
+                    <span class="booking-form__submit-text" data-booking-form-target="submitText">Забронировать</span>
+                    <span class="booking-form__spinner" data-booking-form-target="spinner" hidden></span>
+                </button>
+            </form>
+        </div>
+    </div>
+    </div>
+
+    <div data-controller="datetime-picker">
+    <div class="sheet-backdrop" data-datetime-picker-target="backdrop" data-action="click->datetime-picker#close" hidden></div>
+    <div class="sheet" data-datetime-picker-target="sheet" hidden>
+        <div
+            class="sheet__handle"
+            data-action="touchstart->datetime-picker#touchStart touchmove->datetime-picker#touchMove touchend->datetime-picker#touchEnd"
+        ></div>
+        <header class="sheet__header">
+            <h4 class="sheet__title">Дата и время</h4>
+            <button type="button" class="sheet__close" data-action="datetime-picker#close" aria-label="Закрыть">✕</button>
+        </header>
+        <div class="sheet__body">
+            <div class="calendar">
+                <div class="calendar__switcher">
+                    <button type="button" class="calendar__nav" data-action="datetime-picker#prevMonth" aria-label="Предыдущий месяц">‹</button>
+                    <span class="calendar__month" data-datetime-picker-target="monthLabel"></span>
+                    <button type="button" class="calendar__nav" data-action="datetime-picker#nextMonth" aria-label="Следующий месяц">›</button>
+                </div>
+                <table class="calendar__grid">
+                    <thead>
+                        <tr>
+                            {% for day in ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] %}
+                                <th class="{{ loop.index0 >= 5 ? 'is-weekend' : '' }}">{{ day }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody data-datetime-picker-target="grid"></tbody>
+                </table>
+            </div>
+
+            <div class="time-wheel-block">
+                <span class="booking-form__label">Время</span>
+                <div class="time-wheel">
+                    <div class="time-wheel__highlight" aria-hidden="true"></div>
+                    <div class="time-wheel__col" data-datetime-picker-target="hourWheel">
+                        <div class="time-wheel__pad"></div>
+                        {% for hour in 0..23 %}
+                            <div class="time-wheel__item" data-value="{{ hour }}" data-action="click->datetime-picker#selectHourItem">{{ '%02d'|format(hour) }}</div>
+                        {% endfor %}
+                        <div class="time-wheel__pad"></div>
+                    </div>
+                    <span class="time-wheel__sep">:</span>
+                    <div class="time-wheel__col" data-datetime-picker-target="minuteWheel">
+                        <div class="time-wheel__pad"></div>
+                        {% for minute in [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] %}
+                            <div class="time-wheel__item" data-value="{{ minute }}" data-action="click->datetime-picker#selectMinuteItem">{{ '%02d'|format(minute) }}</div>
+                        {% endfor %}
+                        <div class="time-wheel__pad"></div>
+                    </div>
+                </div>
+            </div>
+
+            <button type="button" class="booking-form__submit" data-action="datetime-picker#confirm">Готово</button>
+        </div>
+    </div>
+    </div>
+{% endblock %}

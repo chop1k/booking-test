@@ -1,0 +1,13 @@
+assets/vendor
+public/assets
+var
+vendor
+.git
+.idea
+README.me
+.php-cs-fixer.php
+.php-cs-fixer.dist.php
+.php-cs-fixer.cache
+compose.yaml
+*.Dockerfile
+.dockerignore

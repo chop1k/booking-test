@@ -119,61 +119,6 @@ paths:
         '500':
           $ref: "#/components/responses/ServerError"
 
-  /system/storage/files/{file_id}:
-    get:
-      tags:
-        - System
-      summary: Get file metadata
-      description: Retrieve and send file metadata
-      operationId: systemStorageGetFile
-      security:
-        - TelegramToken: []
-      parameters:
-        - $ref: "#/components/parameters/FileId"
-      responses:
-        '200':
-          description: Successfully retrieved file metadata from database
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/File"
-        '401':
-          $ref: "#/components/responses/Unauthorized"
-        '404':
-          $ref: "#/components/responses/NotFound"
-        '405':
-          $ref: "#/components/responses/MethodNotAllowed"
-        '500':
-          $ref: "#/components/responses/ServerError"
-
-  /system/storage/files/{file_id}/content:
-    get:
-      tags:
-        - System
-      summary: Get file content
-      description: Retrieve and send file content
-      operationId: systemStorageGetFileContent
-      security:
-        - TelegramToken: []
-      parameters:
-        - $ref: "#/components/parameters/FileId"
-      responses:
-        '200':
-          description: Successfully retrieved file contents from database
-          content:
-            '*/*':
-              schema:
-                type: string
-                format: binary
-        '401':
-          $ref: "#/components/responses/Unauthorized"
-        '404':
-          $ref: "#/components/responses/NotFound"
-        '405':
-          $ref: "#/components/responses/MethodNotAllowed"
-        '500':
-          $ref: "#/components/responses/ServerError"
-
   /web/home:
     get:
       tags:
@@ -302,7 +247,10 @@ components:
           minimum: 1
           description: Typically contains human-readable description or purpose of the room
         attachments:
-          $ref: "#/components/schemas/IdentifiableFilesCollection"
+          type: array
+          items:
+            type: string
+            format: url
         attributes:
           $ref: "#/components/schemas/RoomAttributesCollection"
 
@@ -331,17 +279,6 @@ components:
           format: date-time
         attributes:
           $ref: "#/components/schemas/BookingAttributesCollection"
-
-    File:
-      type: object
-      required:
-        - path
-        - size
-      properties:
-        path:
-          type: string
-        size:
-          type: number
 
     RoomAttribute:
       oneOf:
@@ -380,7 +317,7 @@ components:
           type: number
           minimum: 0
 
-    PowerOutletsUsedAttribute:
+    PowerOutletsAttribute:
       type: object
       properties:
         count:
@@ -442,7 +379,7 @@ components:
           type: number
           minimum: 0
 
-    PowerOutletsAttribute:
+    PowerOutletsUsedAttribute:
       type: object
       properties:
         count:
@@ -494,11 +431,6 @@ components:
       items:
         $ref: "#/components/schemas/BookingAttribute"
 
-    IdentifiableFile:
-      allOf:
-        - $ref: "#/components/schemas/IdentifiableResource"
-        - $ref: "#/components/schemas/File"
-
     IdentifiableRoom:
       allOf:
         - $ref: "#/components/schemas/IdentifiableResource"
@@ -518,11 +450,6 @@ components:
       type: array
       items:
         $ref: "#/components/schemas/IdentifiableBooking"
-
-    IdentifiableFilesCollection:
-      type: array
-      items:
-        $ref: "#/components/schemas/IdentifiableFile"
 
     IdentifiableResource:
       type: object
@@ -547,6 +474,17 @@ components:
           type: string
         instance:
           type: string
+
+    ConflictErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+        - type: object
+          properties:
+            resources:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
 
     ValidationErrorResponse:
       allOf:
@@ -599,6 +537,13 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
             # todo: allow header
+    Conflict:
+      description: Conflict returned when client attempts to create a resource that conflicts with other resource(s)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ConflictErrorResponse'
+
     ServerError:
       description: Unexpected internal error returned if something went wrong at server side.
       content:

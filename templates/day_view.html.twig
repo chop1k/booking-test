@@ -1,0 +1,23 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Расписание дня{% endblock %}
+
+{% block body_controllers %} day-view{% endblock %}
+
+{% block body_data %}
+    data-awaits-content-ready="true"
+    data-day-view-date-value="{{ date is defined ? date|date('Y-m-d') : '' }}"
+    data-day-view-bookings-url-value="{{ app_urls.business_bookings }}"
+    data-day-view-rooms-url-value="{{ app_urls.business_rooms }}"
+{% endblock %}
+
+{% block content %}
+    <header class="page-header">
+        <a class="app-back" href="{{ app_urls.home }}" aria-label="Назад">‹</a>
+        <h2 class="page-header__title" data-day-view-target="dateLabel">Расписание дня</h2>
+    </header>
+
+    <div class="schedule-list" data-day-view-target="list">
+        <p class="schedule-empty" data-day-view-target="empty">Загрузка расписания…</p>
+    </div>
+{% endblock %}

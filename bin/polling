@@ -1,0 +1,651 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+error_reporting(E_ALL);
+
+const STICKER_IDS = [
+    'CAACAgIAAxkBAAMNamsl3Q_tjFcjet4-UyfkEdMFOd0AAtyGAALVUjhLcqtu261XqJw9BA',
+    'CAACAgIAAxkBAAFQ39VqcDOYmO2lBQPjWvwQLiQU5LEHpQACwgADzcBIGKQeU8DIiZEuPQQ'
+];
+
+const BLOCKED_STICKER_ID = 'CAACAgIAAxkBAAFQ4BFqcDZb0ff_WA6fcKcyD5OdEoCUlQACXVEAAml5eUr7ZiPYeAy0jT0E';
+
+const DEBUG_ENVS = ['dev', 'test', 'stage'];
+
+const LOG_LEVELS = [
+    'DEBUG' => 0,
+    'INFO'  => 1,
+    'WARN'  => 2,
+    'ERROR' => 3,
+];
+
+$telegramToken = getenv('POLLING_TELEGRAM_TOKEN');
+$accessToken   = getenv('POLLING_ACCESS_TOKEN');
+$registerUrl   = getenv('POLLING_REGISTER_URL');
+$proxy         = getenv('POLLING_HTTPS_PROXY') ?: null;
+$appUrl        = getenv('POLLING_APP_URL');
+$logLevel      = strtoupper((string) (getenv('POLLING_LOG_LEVEL') ?: 'INFO'));
+$env           = strtolower((string) (getenv('POLLING_ENV') ?: ''));
+
+if (!isset(LOG_LEVELS[$logLevel])) {
+    $logLevel = 'INFO';
+}
+
+$debugAllowed = in_array($env, DEBUG_ENVS, true);
+
+if (!$telegramToken) {
+    fwrite(STDERR, "POLLING_TELEGRAM_TOKEN is required\n");
+    exit(1);
+}
+
+if (!$accessToken) {
+    fwrite(STDERR, "POLLING_ACCESS_TOKEN is required\n");
+    exit(1);
+}
+
+if (!$registerUrl) {
+    fwrite(STDERR, "POLLING_REGISTER_URL is required\n");
+    exit(1);
+}
+
+$api = "https://api.telegram.org/bot{$telegramToken}";
+
+$dbFile   = getenv('POLLING_DB_FILE') ?: (__DIR__ . '/users.json');
+$lockFile = getenv('POLLING_LOCK_FILE') ?: (__DIR__ . '/polling.lock');
+
+$messages = [
+    'Вы ходите по весьма тонкому льду...',
+    'Ты думаешь я с тобой тут шутки шучу?',
+    'Моё терпение не вечно.',
+    'Какая наглость...',
+    'Одна ошибка и ты ошибся',
+    'Доиграешься ведь...'
+];
+
+// ---------------------------------------------------------------------------
+// Логирование
+// ---------------------------------------------------------------------------
+
+function logMessage(string $level, string $message, array $context = []): void
+{
+    global $logLevel;
+
+    if (LOG_LEVELS[$level] < LOG_LEVELS[$logLevel]) {
+        return;
+    }
+
+    $line = sprintf('[%s] %-5s %s', date('c'), $level, $message);
+
+    if ($context) {
+        $line .= ' ' . json_encode($context, JSON_UNESCAPED_UNICODE);
+    }
+
+    $stream = in_array($level, ['ERROR', 'WARN'], true) ? STDERR : STDOUT;
+
+    fwrite($stream, $line . PHP_EOL);
+}
+
+// ---------------------------------------------------------------------------
+// Защита от повторного запуска (single instance lock)
+// ---------------------------------------------------------------------------
+
+function acquireLock(string $lockFile)
+{
+    $handle = fopen($lockFile, 'c');
+
+    if ($handle === false) {
+        throw new RuntimeException("Не удалось открыть lock-файл: {$lockFile}");
+    }
+
+    if (!flock($handle, LOCK_EX | LOCK_NB)) {
+        fwrite(STDERR, "Похоже, другой экземпляр бота уже запущен (lock: {$lockFile})\n");
+        exit(1);
+    }
+
+    ftruncate($handle, 0);
+    fwrite($handle, (string) getmypid());
+    fflush($handle);
+
+    return $handle;
+}
+
+// ---------------------------------------------------------------------------
+// Хранилище (атомарная запись через tmp-файл + rename)
+// ---------------------------------------------------------------------------
+
+function loadDatabase(string $file): array
+{
+    if (!file_exists($file)) {
+        return [
+            '_offset' => 0,
+            '_debug' => false,
+            'users' => [],
+        ];
+    }
+
+    $raw = file_get_contents($file);
+
+    if ($raw === false) {
+        throw new RuntimeException("Не удалось прочитать файл БД: {$file}");
+    }
+
+    if (trim($raw) === '') {
+        // Пустой файл — считаем это первым запуском, а не повреждением.
+        return [
+            '_offset' => 0,
+            '_debug' => false,
+            'users' => [],
+        ];
+    }
+
+    $json = json_decode($raw, true);
+
+    if (!is_array($json)) {
+        // Файл существует, не пуст, но не парсится как JSON — это похоже на
+        // повреждение при аварийном завершении. Раньше в такой ситуации
+        // скрипт молча откатывался на offset=0, из-за чего Telegram заново
+        // присылал все накопленные апдейты и бот дублировал сообщения.
+        // Теперь вместо этого явно останавливаемся и просим разобраться руками.
+        throw new RuntimeException(
+            "Файл БД повреждён и не может быть распарсен как JSON: {$file}. " .
+            "Проверьте файл вручную (например, есть ли файл {$file}.tmp.* рядом) " .
+            "и при необходимости восстановите из бэкапа, прежде чем перезапускать бота."
+        );
+    }
+
+    $json['_offset'] = (int) ($json['_offset'] ?? 0);
+    $json['_debug'] = (bool) ($json['_debug'] ?? false);
+    $json['users'] = is_array($json['users'] ?? null) ? $json['users'] : [];
+
+    return $json;
+}
+
+function saveDatabase(string $file, array $db): void
+{
+    $tmpFile = $file . '.tmp.' . getmypid() . '.' . bin2hex(random_bytes(4));
+
+    $data = json_encode($db, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+    if ($data === false) {
+        throw new RuntimeException('Не удалось сериализовать БД в JSON: ' . json_last_error_msg());
+    }
+
+    if (file_put_contents($tmpFile, $data, LOCK_EX) === false) {
+        throw new RuntimeException("Не удалось записать временный файл БД: {$tmpFile}");
+    }
+
+    // rename() атомарен на POSIX-файловых системах: файл либо полностью
+    // старый, либо полностью новый — промежуточного/битого состояния не бывает,
+    // даже если процесс убьют прямо во время записи.
+    if (!rename($tmpFile, $file)) {
+        @unlink($tmpFile);
+        throw new RuntimeException("Не удалось атомарно заменить файл БД: {$file}");
+    }
+}
+
+function restoreOffset(array $db): int
+{
+    return (int) ($db['_offset'] ?? 0);
+}
+
+// ---------------------------------------------------------------------------
+// Telegram API
+// ---------------------------------------------------------------------------
+
+function telegram(string $method, array $params = []): array
+{
+    global $api;
+    global $proxy;
+
+    $ch = curl_init();
+
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $api . '/' . $method,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $params,
+        CURLOPT_TIMEOUT => 40,
+        CURLOPT_CONNECTTIMEOUT => 10,
+    ]);
+
+    if ($proxy) {
+        curl_setopt($ch, CURLOPT_PROXY, $proxy);
+    }
+
+    $response = curl_exec($ch);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($response === false) {
+        throw new RuntimeException("Telegram API '{$method}': {$curlError}");
+    }
+
+    $json = json_decode($response, true);
+
+    if (!is_array($json)) {
+        throw new RuntimeException("Telegram API '{$method}': некорректный JSON в ответе");
+    }
+
+    return $json;
+}
+
+/**
+ * Обёртка над telegram() с ретраями для методов, где важна доставка
+ * (sendMessage/sendSticker), но не критична скорость (в отличие от getUpdates).
+ */
+function telegramWithRetry(string $method, array $params = [], int $maxAttempts = 3): array
+{
+    $lastError = null;
+
+    for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+        try {
+            return telegram($method, $params);
+        } catch (Throwable $e) {
+            $lastError = $e;
+
+            logMessage('WARN', "Telegram API '{$method}' не удался (попытка {$attempt}/{$maxAttempts}): " . $e->getMessage());
+
+            if ($attempt < $maxAttempts) {
+                sleep($attempt);
+            }
+        }
+    }
+
+    throw $lastError;
+}
+
+function sendMessage(int|string $chatId, string $text, array $extra = []): void
+{
+    try {
+        telegramWithRetry('sendMessage', array_merge([
+            'chat_id' => $chatId,
+            'text' => $text,
+        ], $extra));
+    } catch (Throwable $e) {
+        // Не даём сбою отправки сообщения обрушить обработку апдейта целиком:
+        // максимум пользователь не увидит ответ, но офсет и состояние не потеряются.
+        logMessage('ERROR', 'Не удалось отправить сообщение: ' . $e->getMessage(), ['chat_id' => $chatId]);
+    }
+}
+
+function sendSticker(int|string $chatId, ?string $stickerId = null): void
+{
+    try {
+        telegramWithRetry('sendSticker', [
+            'chat_id' => $chatId,
+            'sticker' => $stickerId ?? STICKER_IDS[array_rand(STICKER_IDS)],
+        ]);
+    } catch (Throwable $e) {
+        logMessage('ERROR', 'Не удалось отправить стикер: ' . $e->getMessage(), ['chat_id' => $chatId]);
+    }
+}
+
+/**
+ * Печатает сырое содержимое апдейта в консоль. Используется только в
+ * отладочном режиме (POLLING_ENV=dev/test/stage + команда /debug), поэтому
+ * вывод не фильтруется по log-level — это отдельный инструмент, а не лог.
+ */
+function debugDump(array $update): void
+{
+    fwrite(STDOUT, '[DEBUG DUMP] ' . json_encode($update, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . PHP_EOL);
+}
+
+// ---------------------------------------------------------------------------
+// Регистрация во внешней системе
+// ---------------------------------------------------------------------------
+
+/**
+ * Один HTTP-запрос регистрации.
+ *
+ * @return true|false|'fatal' true — успех; false — временная (сетевая/5xx) ошибка,
+ *         имеет смысл повторить; 'fatal' — постоянная ошибка (4xx/бизнес-отказ),
+ *         повторять бессмысленно.
+ */
+function doRegisterRequest(string $url, ?string $proxy, int|string $chatId, string $token): bool|string
+{
+    $ch = curl_init();
+
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $url,
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 20,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_POSTFIELDS => json_encode([
+            'chat_id' => (string) $chatId,
+            'token' => $token,
+        ]),
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+        ],
+    ]);
+
+    if ($proxy) {
+        curl_setopt($ch, CURLOPT_PROXY, $proxy);
+    }
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($response === false) {
+        logMessage('WARN', "Ошибка cURL при регистрации: {$curlError}", ['chat_id' => $chatId]);
+        return false;
+    }
+
+    if ($httpCode >= 500) {
+        logMessage('WARN', "Сервер регистрации вернул {$httpCode}", ['chat_id' => $chatId, 'response' => $response]);
+        return false;
+    }
+
+    if ($httpCode < 200 || $httpCode >= 300) {
+        logMessage('ERROR', "Регистрация отклонена, HTTP {$httpCode}", ['chat_id' => $chatId, 'response' => $response]);
+        return 'fatal';
+    }
+
+    $data = json_decode($response, true);
+
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        logMessage('ERROR', 'Регистрация: некорректный JSON в ответе сервера', ['chat_id' => $chatId, 'response' => $response]);
+        return 'fatal';
+    }
+
+    if (isset($data['success']) && $data['success'] === false) {
+        logMessage('ERROR', 'Регистрация отклонена сервером: ' . ($data['message'] ?? 'неизвестная ошибка'), ['chat_id' => $chatId]);
+        return 'fatal';
+    }
+
+    return true;
+}
+
+function registerUser(string $url, ?string $proxy, int|string $chatId, string $token, int $maxAttempts = 3): bool
+{
+    for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+        $result = doRegisterRequest($url, $proxy, $chatId, $token);
+
+        if ($result === true) {
+            return true;
+        }
+
+        if ($result === 'fatal') {
+            return false;
+        }
+
+        if ($attempt < $maxAttempts) {
+            $delay = $attempt * 2;
+            logMessage('WARN', "Повтор регистрации через {$delay}с (попытка {$attempt}/{$maxAttempts})", ['chat_id' => $chatId]);
+            sleep($delay);
+        }
+    }
+
+    return false;
+}
+
+// ---------------------------------------------------------------------------
+// Обработка одного апдейта
+// ---------------------------------------------------------------------------
+
+function processUpdate(
+    array &$db,
+    string $dbFile,
+    array $update,
+    string $accessToken,
+    string $registerUrl,
+    ?string $proxy,
+    ?string $appUrl,
+    array $messages,
+    bool $debugAllowed
+): void {
+    if (!isset($update['message']['text'])) {
+        logMessage('DEBUG', 'Апдейт без текстового сообщения, пропускаем', ['update_id' => $update['update_id'] ?? null]);
+        return;
+    }
+
+    $message = trim($update['message']['text']);
+    $chatId = $update['message']['chat']['id'];
+    $userId = $update['message']['from']['id'];
+
+    // -------------------------------------------------------------------
+    // Отладочный режим: доступен только при POLLING_ENV=dev/test/stage.
+    // /debug включает вывод сырых апдейтов в консоль для ВСЕХ последующих
+    // сообщений (глобально, не только от этого пользователя), /debug_off
+    // выключает. Сами эти команды не выводятся, только то, что после них.
+    // -------------------------------------------------------------------
+    if ($debugAllowed) {
+        if ($message === '/debug') {
+            $db['_debug'] = true;
+            saveDatabase($dbFile, $db);
+            logMessage('INFO', 'Debug-режим включён', ['user_id' => $userId]);
+            sendMessage($chatId, 'Дебаг-режим включён: сырые апдейты будут выводиться в консоль. Чтобы выключить — /debug_off');
+            return;
+        }
+
+        if ($message === '/debug_off') {
+            $db['_debug'] = false;
+            saveDatabase($dbFile, $db);
+            logMessage('INFO', 'Debug-режим выключен', ['user_id' => $userId]);
+            sendMessage($chatId, 'Дебаг-режим выключен.');
+            return;
+        }
+
+        if ($db['_debug'] ?? false) {
+            debugDump($update);
+        }
+    }
+
+    if (!isset($db['users'][$userId])) {
+        $db['users'][$userId] = [
+            'status' => 'new',
+            'fails' => 0,
+            'blocked_until' => 0,
+            'chat_id' => $chatId,
+            'registered_at' => null,
+        ];
+    }
+
+    $user =& $db['users'][$userId];
+    $user['chat_id'] = $chatId;
+
+    if (($user['blocked_until'] ?? 0) > time()) {
+        $secondsLeft = $user['blocked_until'] - time();
+
+        // Это отдельное постоянное уведомление в консоль (не зависит от
+        // POLLING_ENV/debug-режима) — чтобы сразу было видно, что кто-то
+        // ломится под блокировкой.
+        logMessage('WARN', 'Заблокированный пользователь прислал сообщение', [
+            'user_id' => $userId,
+            'chat_id' => $chatId,
+            'seconds_left' => $secondsLeft,
+        ]);
+
+        return;
+    }
+
+    // -------------------------------------------------------------------
+    // Пользователь уже зарегистрирован
+    // -------------------------------------------------------------------
+    if (($user['status'] ?? 'new') === 'registered') {
+        if (str_starts_with($message, '/logout')) {
+            $user['status'] = 'new';
+            $user['registered_at'] = null;
+            $user['fails'] = 0;
+            $user['blocked_until'] = 0;
+
+            saveDatabase($dbFile, $db);
+
+            logMessage('INFO', 'Пользователь разлогинился', ['user_id' => $userId]);
+
+            sendMessage($chatId, 'Опять по новой да?');
+            return;
+        }
+
+        sendMessage($chatId, 'Я уже забыл про тебя, хотя... Может быть /logout освежит мою память...');
+        return;
+    }
+
+    // -------------------------------------------------------------------
+    // Пользователь ещё не зарегистрирован
+    // -------------------------------------------------------------------
+    if (str_starts_with($message, '/start')) {
+        sendMessage($chatId, 'Гони токен!');
+        sendSticker($chatId);
+        return;
+    }
+
+    if (str_starts_with($message, '/logout')) {
+        sendMessage($chatId, 'Ты сначала залогинься, тогда поговорим.');
+        return;
+    }
+
+    if ($message === $accessToken) {
+        logMessage('INFO', 'Получен верный токен, регистрируем пользователя', ['user_id' => $userId, 'chat_id' => $chatId]);
+
+        $success = registerUser($registerUrl, $proxy, $chatId, $accessToken);
+
+        if (!$success) {
+            logMessage('ERROR', 'Запрос регистрации не удался', ['user_id' => $userId, 'chat_id' => $chatId]);
+            sendMessage($chatId, 'Я сломался. Почини.');
+            return;
+        }
+
+        $user['status'] = 'registered';
+        $user['fails'] = 0;
+        $user['blocked_until'] = 0;
+        $user['registered_at'] = time();
+
+        saveDatabase($dbFile, $db);
+
+        logMessage('INFO', 'Пользователь успешно зарегистрирован', ['user_id' => $userId]);
+
+        sendMessage($chatId, 'Вот так бы сразу...', [
+            'reply_markup' => json_encode([
+                'inline_keyboard' => [
+                    [
+                        [
+                            'text' => 'Открыть',
+                            'web_app' => [
+                                'url' => $appUrl,
+                            ],
+                        ],
+                    ],
+                ],
+            ]),
+        ]);
+        return;
+    }
+
+    $user['fails'] = ($user['fails'] ?? 0) + 1;
+
+    if ($user['fails'] >= 3) {
+        $user['fails'] = 0;
+        $user['blocked_until'] = time() + 3600;
+
+        logMessage('INFO', 'Пользователь заблокирован за неверные попытки ввода токена', ['user_id' => $userId]);
+
+        $secondsLeft = $user['blocked_until'] - time();
+        $minutesLeft = (int) max(1, ceil($secondsLeft / 60));
+
+        sendMessage($chatId, "Ну всё, допрыгался! Ты в бане следующие {$minutesLeft} мин.");
+        sendSticker($chatId, BLOCKED_STICKER_ID);
+
+        return;
+    }
+
+    saveDatabase($dbFile, $db);
+
+    sendMessage($chatId, $messages[array_rand($messages)]);
+    sendSticker($chatId);
+}
+
+// ---------------------------------------------------------------------------
+// Точка входа
+// ---------------------------------------------------------------------------
+
+$lockHandle = acquireLock($lockFile);
+
+$shouldStop = false;
+
+if (function_exists('pcntl_async_signals')) {
+    pcntl_async_signals(true);
+
+    $stopHandler = function (int $signal) use (&$shouldStop): void {
+        logMessage('INFO', 'Получен сигнал остановки, завершаем работу после текущей итерации', ['signal' => $signal]);
+        $shouldStop = true;
+    };
+
+    pcntl_signal(SIGTERM, $stopHandler);
+    pcntl_signal(SIGINT, $stopHandler);
+} else {
+    logMessage('WARN', 'Расширение pcntl недоступно — graceful shutdown по SIGTERM/SIGINT работать не будет');
+}
+
+logMessage('INFO', 'Бот запускается', [
+    'pid' => getmypid(),
+    'log_level' => $logLevel,
+    'env' => $env ?: '(не задан)',
+    'debug_command_allowed' => $debugAllowed,
+]);
+
+$db = loadDatabase($dbFile);
+
+telegramWithRetry('deleteWebhook');
+
+$offset = restoreOffset($db);
+
+logMessage('INFO', 'Бот запущен', ['offset' => $offset]);
+
+while (!$shouldStop) {
+    try {
+        $updates = telegram('getUpdates', [
+            'offset' => $offset,
+            'timeout' => 30,
+            'allowed_updates' => json_encode(['message']),
+        ]);
+    } catch (Throwable $e) {
+        if ($shouldStop) {
+            break;
+        }
+
+        logMessage('ERROR', 'getUpdates не удался: ' . $e->getMessage());
+        sleep(5);
+        continue;
+    }
+
+    if (!isset($updates['result'])) {
+        logMessage('WARN', 'Неожиданный ответ getUpdates', ['response' => $updates]);
+        sleep(1);
+        continue;
+    }
+
+    foreach ($updates['result'] as $update) {
+        if ($shouldStop) {
+            break;
+        }
+
+        try {
+            processUpdate($db, $dbFile, $update, $accessToken, $registerUrl, $proxy, $appUrl, $messages, $debugAllowed);
+        } catch (Throwable $e) {
+            // Ошибка в обработке одного апдейта не должна ронять весь батч —
+            // логируем и идём дальше, офсет всё равно продвинется ниже.
+            logMessage('ERROR', 'Не удалось обработать апдейт: ' . $e->getMessage(), ['update_id' => $update['update_id'] ?? null]);
+        }
+
+        // Офсет фиксируется только после того, как апдейт полностью обработан
+        // (включая отправку ответов и вызов внешней регистрации). Если процесс
+        // упадёт раньше — Telegram пришлёт этот апдейт повторно при рестарте,
+        // что безопаснее, чем терять сообщения пользователей.
+        $offset = $update['update_id'] + 1;
+        $db['_offset'] = $offset;
+        saveDatabase($dbFile, $db);
+    }
+}
+
+logMessage('INFO', 'Бот остановлен', ['offset' => $offset]);
+
+flock($lockHandle, LOCK_UN);
+fclose($lockHandle);
+
+exit(0);

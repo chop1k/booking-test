@@ -1,22 +1,22 @@
 import { Controller } from '@hotwired/stimulus';
+import { authorizedFetch, setAuthorizedImageSrc } from '../api.js';
+import { renderScheduleEmptyState } from '../ui.js';
 
 const STATE_CLOSED = 'closed';
-const STATE_COLLAPSED = 'collapsed'; // ~60% экрана
-const STATE_EXPANDED = 'expanded'; // 100% экрана
+const STATE_COLLAPSED = 'collapsed';
+const STATE_EXPANDED = 'expanded';
 const SWIPE_THRESHOLD_PX = 60;
 
-/**
- * Всплывающее снизу меню просмотра расписания конкретного дня.
- * Открывается по событию "calendar:day-selected" от calendar_controller.
- * Список часов -> клик разворачивает список бронирований этого часа по минутам.
- */
 export default class extends Controller {
-    static targets = ['sheet', 'backdrop', 'dateLabel', 'list'];
+    static targets = ['backdrop', 'sheet', 'dateLabel', 'list'];
+    static values = { roomsUrl: String };
 
     connect() {
         this.state = STATE_CLOSED;
         this.dragStartY = null;
         this.dragCurrentY = null;
+        this.roomsById = new Map();
+        this.loadRooms();
 
         this.onDaySelected = (event) => this.open(event.detail);
         document.addEventListener('calendar:day-selected', this.onDaySelected);
@@ -26,14 +26,22 @@ export default class extends Controller {
         document.removeEventListener('calendar:day-selected', this.onDaySelected);
     }
 
+    async loadRooms() {
+        try {
+            const response = await authorizedFetch(this.roomsUrlValue);
+            if (!response.ok) throw new Error(`Не удалось загрузить комнаты: ${response.status}`);
+            (await response.json()).forEach((room) => this.roomsById.set(String(room.id), room.name));
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
     open({ date, bookings }) {
         this.dateLabelTarget.textContent = this.formatDate(date);
         this.renderList(bookings);
 
         this.backdropTarget.hidden = false;
         this.sheetTarget.hidden = false;
-
-        // rAF, чтобы браузер успел применить hidden=false до включения transition-класса.
         requestAnimationFrame(() => this.setState(STATE_COLLAPSED));
     }
 
@@ -53,8 +61,6 @@ export default class extends Controller {
         this.backdropTarget.classList.toggle('is-visible', state !== STATE_CLOSED);
     }
 
-    // --- Свайпы --------------------------------------------------------------
-
     touchStart(event) {
         this.dragStartY = event.touches[0].clientY;
         this.dragCurrentY = this.dragStartY;
@@ -65,7 +71,6 @@ export default class extends Controller {
         if (this.dragStartY === null) return;
         this.dragCurrentY = event.touches[0].clientY;
         const delta = this.dragCurrentY - this.dragStartY;
-        // Не даём тащить выше экрана.
         this.sheetTarget.style.transform = `translateY(${Math.max(delta, -window.innerHeight)}px)`;
     }
 
@@ -76,14 +81,12 @@ export default class extends Controller {
         this.sheetTarget.style.transform = '';
 
         if (delta > SWIPE_THRESHOLD_PX) {
-            // Свайп вниз
             if (this.state === STATE_EXPANDED) {
                 this.setState(STATE_COLLAPSED);
             } else {
                 this.close();
             }
         } else if (delta < -SWIPE_THRESHOLD_PX) {
-            // Свайп вверх
             this.setState(STATE_EXPANDED);
         } else {
             this.setState(this.state === STATE_CLOSED ? STATE_COLLAPSED : this.state);
@@ -93,16 +96,11 @@ export default class extends Controller {
         this.dragCurrentY = null;
     }
 
-    // --- Рендер списка ---------------------------------------------------------
-
     renderList(bookings) {
         this.listTarget.innerHTML = '';
 
         if (!bookings.length) {
-            const empty = document.createElement('p');
-            empty.className = 'day-sheet__empty';
-            empty.textContent = 'На этот день пока нет бронирований';
-            this.listTarget.appendChild(empty);
+            renderScheduleEmptyState(this.listTarget, 'На этот день пока нет бронирований');
             return;
         }
 
@@ -136,6 +134,7 @@ export default class extends Controller {
         time.className = 'hour-item__time';
         time.textContent = `${String(hour).padStart(2, '0')}:00 – ${String((hour + 1) % 24).padStart(2, '0')}:00`;
         row.appendChild(time);
+        row.appendChild(this.renderRoomLabel(bookings));
         row.appendChild(this.renderAvatars(bookings));
         item.appendChild(row);
 
@@ -155,9 +154,22 @@ export default class extends Controller {
         time.className = 'minute-item__time';
         time.textContent = `${this.formatTime(booking.starts_at)} – ${this.formatTime(booking.ends_at)}`;
         row.appendChild(time);
+        row.appendChild(this.renderRoomLabel([booking]));
         row.appendChild(this.renderAvatars([booking]));
 
         return row;
+    }
+
+    renderRoomLabel(bookings) {
+        const label = document.createElement('span');
+        label.className = 'schedule-item__room';
+
+        const roomIds = new Set(bookings.map((booking) => booking.room_id));
+        label.textContent = roomIds.size === 1
+            ? this.roomsById.get(String(bookings[0].room_id)) || ''
+            : 'Несколько комнат';
+
+        return label;
     }
 
     renderAvatars(bookings) {
@@ -170,12 +182,11 @@ export default class extends Controller {
         visible.forEach((booking) => {
             const avatar = document.createElement('span');
             avatar.className = 'avatar';
-            // user_id в брони не обязателен по спеке — если его нет, показываем заглушку.
             if (booking.user_id) {
                 const img = document.createElement('img');
-                img.src = `/integration/telegram/user-avatar/${booking.user_id}`;
                 img.alt = '';
                 img.loading = 'lazy';
+                setAuthorizedImageSrc(img, window.appUrls.userAvatar.replace('__ID__', booking.user_id));
                 avatar.appendChild(img);
             } else {
                 avatar.classList.add('avatar--placeholder');
@@ -196,8 +207,6 @@ export default class extends Controller {
     toggleHour(event) {
         event.currentTarget.closest('.hour-item').classList.toggle('is-open');
     }
-
-    // --- Форматирование -----------------------------------------------------
 
     formatDate(dateKey) {
         const date = new Date(`${dateKey}T00:00:00`);

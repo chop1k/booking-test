@@ -1,15 +1,11 @@
 import { Controller } from '@hotwired/stimulus';
+import { authorizedFetch } from '../api.js';
 
 const MONTH_NAMES = [
     'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
     'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
 ];
 
-/**
- * Виджет-календарь расписания бронирований (таблица 7x7, переключение месяцев).
- * При клике на день диспатчит на document событие "calendar:day-selected"
- * с датой и списком бронирований этого дня — слушает его day_schedule_controller.
- */
 export default class extends Controller {
     static targets = ['monthLabel', 'grid'];
     static values = { bookingsUrl: String };
@@ -20,7 +16,15 @@ export default class extends Controller {
         this.year = today.getFullYear();
         this.month = today.getMonth();
         this.firstLoad = true;
+
+        this.onBookingsChanged = () => this.render();
+        document.addEventListener('bookings:changed', this.onBookingsChanged);
+
         this.render();
+    }
+
+    disconnect() {
+        document.removeEventListener('bookings:changed', this.onBookingsChanged);
     }
 
     prevMonth() {
@@ -43,7 +47,7 @@ export default class extends Controller {
 
     gridStart() {
         const firstOfMonth = new Date(this.year, this.month, 1);
-        const mondayIndex = (firstOfMonth.getDay() + 6) % 7; // 0 = понедельник
+        const mondayIndex = (firstOfMonth.getDay() + 6) % 7;
         const start = new Date(firstOfMonth);
         start.setDate(start.getDate() - mondayIndex);
         return start;
@@ -59,10 +63,9 @@ export default class extends Controller {
             cells.push(new Date(cursor));
             cursor.setDate(cursor.getDate() + 1);
         }
-        const end = cells[cells.length - 1];
 
         try {
-            this.bookingsByDate = await this.fetchBookings(start, end);
+            this.bookingsByDate = await this.fetchBookings();
         } catch (error) {
             console.error(error);
             this.bookingsByDate = {};
@@ -76,26 +79,23 @@ export default class extends Controller {
         }
     }
 
-    async fetchBookings(start, end) {
-        const url = new URL(this.bookingsUrlValue, window.location.origin);
-        // ВАЖНО: спецификация не фиксирует единицы измерения from/to (type: number).
-        // Предполагаем unix-время в секундах — если бекенд ждёт миллисекунды, поменять здесь.
-        url.searchParams.set('from', Math.floor(start.getTime() / 1000));
-        url.searchParams.set('to', Math.floor(end.getTime() / 1000));
+    async fetchBookings() {
+        const from = new Date(this.year, this.month - 1, 1);
+        const to = new Date(this.year, this.month + 2, 0);
 
-        const response = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
-        if (!response.ok) {
-            throw new Error(`Не удалось загрузить бронирования: ${response.status}`);
-        }
+        const url = new URL(this.bookingsUrlValue, window.location.origin);
+        url.searchParams.set('from', Math.floor(from.getTime() / 1000));
+        url.searchParams.set('to', Math.floor(to.getTime() / 1000));
+
+        const response = await authorizedFetch(url.toString());
+        if (!response.ok) throw new Error(`Не удалось загрузить бронирования: ${response.status}`);
 
         const bookings = await response.json();
         const byDate = {};
 
         bookings.forEach((booking) => {
             const key = this.dateKey(new Date(booking.starts_at));
-            if (!byDate[key]) {
-                byDate[key] = [];
-            }
+            if (!byDate[key]) byDate[key] = [];
             byDate[key].push(booking);
         });
 

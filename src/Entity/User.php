@@ -6,52 +6,39 @@ namespace App\Entity;
 
 use App\Repository\UserRepository;
 use Doctrine\ORM\Mapping as ORM;
+use LogicException;
+use Symfony\Component\Security\Core\User\UserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: '`user`')]
-class User
+class User implements UserInterface
 {
-    use IdentifiableResourceTrait;
+    #[ORM\Id]
+    #[ORM\GeneratedValue(strategy: 'NONE')]
+    #[ORM\Column(type: 'string')]
+    private ?string $id = null;
 
-    #[ORM\Column(type: 'string', unique: true)]
-    private string $telegramId;
-
-    #[ORM\Column(type: 'string', enumType: VerifiedBy::class, nullable: true)]
-    private ?VerifiedBy $verifiedBy = null;
-
-    #[ORM\Column(type: 'boolean', options: ['default' => false])]
-    private bool $isAdmin = false;
-
-    public function getTelegramId(): string
+    public function getId(): ?string
     {
-        return $this->telegramId;
+        return $this->id;
     }
 
-    public function setTelegramId(string $telegramId): self
+    public function setId(string $id): void
     {
-        $this->telegramId = $telegramId;
-        return $this;
+        $this->id = $id;
     }
 
-    public function getVerifiedBy(): ?VerifiedBy
+    public function getRoles(): array
     {
-        return $this->verifiedBy;
+        return ['ROLE_USER'];
     }
 
-    public function setVerifiedBy(?VerifiedBy $verifiedBy): self
+    public function getUserIdentifier(): string
     {
-        $this->verifiedBy = $verifiedBy;
-        return $this;
-    }
+        if (null === $this->id) {
+            throw new LogicException('The user Id property must be set.');
+        }
 
-    public function isAdmin(): bool
-    {
-        return $this->isAdmin;
-    }
-
-    public function setIsAdmin(bool $isAdmin): self
-    {
-        $this->isAdmin = $isAdmin;
-        return $this;
+        return (string) $this->id;
     }
 }
