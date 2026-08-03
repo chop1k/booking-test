@@ -7,7 +7,8 @@ ADD --chmod=0755 \
 RUN apk add --no-cache \
         curl \
     && install-php-extensions \
-        curl
+        curl \
+        pcntl
 
 WORKDIR /app
 
