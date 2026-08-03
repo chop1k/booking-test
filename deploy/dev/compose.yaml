@@ -25,7 +25,7 @@ services:
       - postgres-data:/var/lib/postgresql/18/docker
 
     healthcheck:
-      test: ["CMD-SHELL", "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'"]
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}'"]
       interval: 5s
       timeout: 3s
       retries: 10
