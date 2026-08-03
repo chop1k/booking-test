@@ -10,6 +10,8 @@ const STICKER_IDS = [
     'CAACAgIAAxkBAAFQ39VqcDOYmO2lBQPjWvwQLiQU5LEHpQACwgADzcBIGKQeU8DIiZEuPQQ'
 ];
 
+const BLOCKED_STICKER_ID = 'CAACAgIAAxkBAAFQ4BFqcDZb0ff_WA6fcKcyD5OdEoCUlQACXVEAAml5eUr7ZiPYeAy0jT0E';
+
 const DEBUG_ENVS = ['dev', 'test', 'stage'];
 
 const LOG_LEVELS = [
@@ -59,6 +61,7 @@ $messages = [
     'Моё терпение не вечно.',
     'Какая наглость...',
     'Одна ошибка и ты ошибся',
+    'Доиграешься ведь...'
 ];
 
 // ---------------------------------------------------------------------------
@@ -267,12 +270,12 @@ function sendMessage(int|string $chatId, string $text, array $extra = []): void
     }
 }
 
-function sendSticker(int|string $chatId): void
+function sendSticker(int|string $chatId, ?string $stickerId = null): void
 {
     try {
         telegramWithRetry('sendSticker', [
             'chat_id' => $chatId,
-            'sticker' => STICKER_IDS[array_rand(STICKER_IDS)],
+            'sticker' => $stickerId ?? STICKER_IDS[array_rand(STICKER_IDS)],
         ]);
     } catch (Throwable $e) {
         logMessage('ERROR', 'Не удалось отправить стикер: ' . $e->getMessage(), ['chat_id' => $chatId]);
@@ -447,7 +450,17 @@ function processUpdate(
     $user['chat_id'] = $chatId;
 
     if (($user['blocked_until'] ?? 0) > time()) {
-        logMessage('DEBUG', 'Сообщение от заблокированного пользователя проигнорировано', ['user_id' => $userId]);
+        $secondsLeft = $user['blocked_until'] - time();
+
+        // Это отдельное постоянное уведомление в консоль (не зависит от
+        // POLLING_ENV/debug-режима) — чтобы сразу было видно, что кто-то
+        // ломится под блокировкой.
+        logMessage('WARN', 'Заблокированный пользователь прислал сообщение', [
+            'user_id' => $userId,
+            'chat_id' => $chatId,
+            'seconds_left' => $secondsLeft,
+        ]);
+
         return;
     }
 
@@ -465,11 +478,11 @@ function processUpdate(
 
             logMessage('INFO', 'Пользователь разлогинился', ['user_id' => $userId]);
 
-            sendMessage($chatId, 'Вы вышли из аккаунта. Пришлите /start, чтобы ввести токен заново.');
+            sendMessage($chatId, 'Опять по новой да?');
             return;
         }
 
-        sendMessage($chatId, 'Вы уже зарегистрированы. Если хотите перелогиниться — используйте /logout.');
+        sendMessage($chatId, 'Я уже забыл про тебя, хотя... Может быть /logout освежит мою память...');
         return;
     }
 
@@ -483,7 +496,7 @@ function processUpdate(
     }
 
     if (str_starts_with($message, '/logout')) {
-        sendMessage($chatId, 'Вы ещё не зарегистрированы, разлогинивать нечего. Пришлите токен.');
+        sendMessage($chatId, 'Ты сначала залогинься, тогда поговорим.');
         return;
     }
 
@@ -494,7 +507,7 @@ function processUpdate(
 
         if (!$success) {
             logMessage('ERROR', 'Запрос регистрации не удался', ['user_id' => $userId, 'chat_id' => $chatId]);
-            sendMessage($chatId, 'Не получилось зарегистрировать вас из-за технической ошибки. Пришлите токен ещё раз чуть позже.');
+            sendMessage($chatId, 'Я сломался. Почини.');
             return;
         }
 
@@ -529,7 +542,16 @@ function processUpdate(
     if ($user['fails'] >= 3) {
         $user['fails'] = 0;
         $user['blocked_until'] = time() + 3600;
+
         logMessage('INFO', 'Пользователь заблокирован за неверные попытки ввода токена', ['user_id' => $userId]);
+
+        $secondsLeft = $user['blocked_until'] - time();
+        $minutesLeft = (int) max(1, ceil($secondsLeft / 60));
+
+        sendMessage($chatId, "Ну всё, допрыгался! Ты в бане следующие {$minutesLeft} мин.");
+        sendSticker($chatId, BLOCKED_STICKER_ID);
+
+        return;
     }
 
     saveDatabase($dbFile, $db);
