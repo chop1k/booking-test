@@ -317,7 +317,7 @@ components:
           type: number
           minimum: 0
 
-    PowerOutletsUsedAttribute:
+    PowerOutletsAttribute:
       type: object
       properties:
         count:
@@ -379,7 +379,7 @@ components:
           type: number
           minimum: 0
 
-    PowerOutletsAttribute:
+    PowerOutletsUsedAttribute:
       type: object
       properties:
         count:
@@ -475,6 +475,17 @@ components:
         instance:
           type: string
 
+    ConflictErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+        - type: object
+          properties:
+            resources:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+
     ValidationErrorResponse:
       allOf:
         - $ref: '#/components/schemas/ErrorResponse'
@@ -526,6 +537,13 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
             # todo: allow header
+    Conflict:
+      description: Conflict returned when client attempts to create a resource that conflicts with other resource(s)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ConflictErrorResponse'
+
     ServerError:
       description: Unexpected internal error returned if something went wrong at server side.
       content:
