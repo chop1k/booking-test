@@ -81,7 +81,7 @@
 {% endblock %}
 
 {% block overlays %}
-    <div data-controller="day-schedule">
+    <div data-controller="day-schedule" data-day-schedule-rooms-url-value="{{ app_urls.business_rooms }}">
     <div class="sheet-backdrop" data-day-schedule-target="backdrop" data-action="click->day-schedule#close" hidden></div>
     <div class="sheet day-sheet" data-day-schedule-target="sheet" hidden>
         <div

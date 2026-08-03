@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { setAuthorizedImageSrc } from '../api.js';
+import { authorizedFetch, setAuthorizedImageSrc } from '../api.js';
 import { renderScheduleEmptyState } from '../ui.js';
 
 const STATE_CLOSED = 'closed';
@@ -9,11 +9,14 @@ const SWIPE_THRESHOLD_PX = 60;
 
 export default class extends Controller {
     static targets = ['backdrop', 'sheet', 'dateLabel', 'list'];
+    static values = { roomsUrl: String };
 
     connect() {
         this.state = STATE_CLOSED;
         this.dragStartY = null;
         this.dragCurrentY = null;
+        this.roomsById = new Map();
+        this.loadRooms();
 
         this.onDaySelected = (event) => this.open(event.detail);
         document.addEventListener('calendar:day-selected', this.onDaySelected);
@@ -21,6 +24,16 @@ export default class extends Controller {
 
     disconnect() {
         document.removeEventListener('calendar:day-selected', this.onDaySelected);
+    }
+
+    async loadRooms() {
+        try {
+            const response = await authorizedFetch(this.roomsUrlValue);
+            if (!response.ok) throw new Error(`Не удалось загрузить комнаты: ${response.status}`);
+            (await response.json()).forEach((room) => this.roomsById.set(String(room.id), room.name));
+        } catch (error) {
+            console.error(error);
+        }
     }
 
     open({ date, bookings }) {
@@ -121,6 +134,7 @@ export default class extends Controller {
         time.className = 'hour-item__time';
         time.textContent = `${String(hour).padStart(2, '0')}:00 – ${String((hour + 1) % 24).padStart(2, '0')}:00`;
         row.appendChild(time);
+        row.appendChild(this.renderRoomLabel(bookings));
         row.appendChild(this.renderAvatars(bookings));
         item.appendChild(row);
 
@@ -140,9 +154,22 @@ export default class extends Controller {
         time.className = 'minute-item__time';
         time.textContent = `${this.formatTime(booking.starts_at)} – ${this.formatTime(booking.ends_at)}`;
         row.appendChild(time);
+        row.appendChild(this.renderRoomLabel([booking]));
         row.appendChild(this.renderAvatars([booking]));
 
         return row;
+    }
+
+    renderRoomLabel(bookings) {
+        const label = document.createElement('span');
+        label.className = 'schedule-item__room';
+
+        const roomIds = new Set(bookings.map((booking) => booking.room_id));
+        label.textContent = roomIds.size === 1
+            ? this.roomsById.get(String(bookings[0].room_id)) || ''
+            : 'Несколько комнат';
+
+        return label;
     }
 
     renderAvatars(bookings) {

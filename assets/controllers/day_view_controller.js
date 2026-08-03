@@ -4,12 +4,13 @@ import { renderScheduleEmptyState } from '../ui.js';
 
 export default class extends Controller {
     static targets = ['dateLabel', 'list', 'empty'];
-    static values = { date: String, bookingsUrl: String };
+    static values = { date: String, bookingsUrl: String, roomsUrl: String };
 
     connect() {
         this.date = this.parseDate(this.dateValue);
         this.dateLabelTarget.textContent = this.formatDate(this.date);
-        this.loadBookings();
+        this.roomsById = new Map();
+        this.load();
     }
 
     parseDate(value) {
@@ -22,9 +23,11 @@ export default class extends Controller {
         return today;
     }
 
-    async loadBookings() {
+    async load() {
         try {
-            this.renderList(await this.fetchBookings());
+            const [rooms, bookings] = await Promise.all([this.fetchRooms(), this.fetchBookings()]);
+            rooms.forEach((room) => this.roomsById.set(String(room.id), room.name));
+            this.renderList(bookings);
         } catch (error) {
             console.error(error);
             this.emptyTarget.textContent = 'Не удалось загрузить расписание';
@@ -32,6 +35,12 @@ export default class extends Controller {
         } finally {
             document.dispatchEvent(new CustomEvent('app:content-ready'));
         }
+    }
+
+    async fetchRooms() {
+        const response = await authorizedFetch(this.roomsUrlValue);
+        if (!response.ok) throw new Error(`Не удалось загрузить комнаты: ${response.status}`);
+        return response.json();
     }
 
     async fetchBookings() {
@@ -87,6 +96,7 @@ export default class extends Controller {
         time.className = 'hour-item__time';
         time.textContent = `${String(hour).padStart(2, '0')}:00 – ${String((hour + 1) % 24).padStart(2, '0')}:00`;
         row.appendChild(time);
+        row.appendChild(this.renderRoomLabel(bookings));
         row.appendChild(this.renderAvatars(bookings));
         item.appendChild(row);
 
@@ -106,9 +116,22 @@ export default class extends Controller {
         time.className = 'minute-item__time';
         time.textContent = `${this.formatTime(booking.starts_at)} – ${this.formatTime(booking.ends_at)}`;
         row.appendChild(time);
+        row.appendChild(this.renderRoomLabel([booking]));
         row.appendChild(this.renderAvatars([booking]));
 
         return row;
+    }
+
+    renderRoomLabel(bookings) {
+        const label = document.createElement('span');
+        label.className = 'schedule-item__room';
+
+        const roomIds = new Set(bookings.map((booking) => booking.room_id));
+        label.textContent = roomIds.size === 1
+            ? this.roomsById.get(String(bookings[0].room_id)) || ''
+            : 'Несколько комнат';
+
+        return label;
     }
 
     renderAvatars(bookings) {
