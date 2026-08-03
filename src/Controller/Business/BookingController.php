@@ -27,7 +27,7 @@ class BookingController extends AbstractController
     ) {
     }
 
-    #[IsGranted("ROLE_USER")]
+    #[IsGranted('ROLE_USER')]
     #[Route('', name: 'business_get_bookings', methods: ['GET'])]
     public function bookings(#[MapQueryParameter] ?int $from, #[MapQueryParameter] ?int $to): JsonResponse
     {
